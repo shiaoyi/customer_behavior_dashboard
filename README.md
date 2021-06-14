@@ -1,5 +1,5 @@
 # customer_behavior_dashboard
-![Dashboard Overview](https://github.com/shiaoyi/customer_behavior_dashboard/dashboard_overview.png?raw=true)
+![Dashboard Overview](https://github.com/shiaoyi/customer_behavior_dashboard/blob/master/dashboard_overview.png?raw=true)
 ## Sidebar
 ### Overview 每日即時概況
 * 交易額、訂單量、客單價、會員數 (前兩天的每小時狀況）
