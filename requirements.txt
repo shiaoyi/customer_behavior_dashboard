@@ -1,0 +1,11 @@
+flask
+flask-bootstrap
+flask-wtf
+wtforms
+pandas
+mysqlclient
+requests
+bs4
+flask-paginate
+PyMySQL
+cryptography

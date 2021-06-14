@@ -1,0 +1,609 @@
+{% extends "base.html" %}
+
+{% block dashboard_content %}
+  <h1>新舊客分析</h1>
+  <br>
+  <form action='/customer' onsubmit="return validateDate()">
+    <div id="date-picker">
+      <p style='display:inline-block;margin-right:10px;font-weight: 500;font-size: 16px;'>From</p><p style='display:inline-block;margin-right:15px;'><input name="startdate" id="startdate" type="text" class="form-control" onchange='keepValue(this);'></p>
+      <p style='display:inline-block;margin-right:10px;font-weight: 500;font-size: 16px;'>To</p><p style='display:inline-block;'><input name="enddate" id="enddate" type="text" class="form-control" onchange='keepValue(this);'></p>
+    </div>
+    <button class="date-select-btn" type="submit">Go</button>
+  </form>
+  <div id="date-alert" class="alert alert-danger" role="alert" style="margin-top:10px;display:none;">
+    <button type="button" onclick="closeDateAlert()" style="border:none;background-color:transparent;font-size:20px;outline:none;">&times;</button>
+    <strong>日期格式錯誤！</strong> 請重新設置日期
+  </div>
+  <div class="block" id="block-customer-overview">
+    <div class="block-infos">
+      <div class="block-info">
+        <h1 class="block-value" id="all-cus-value">0</h1>
+        <h2 class="block-title">總客數</h2>
+      </div>
+      <div class="block-info">
+        <h1 class="block-value" id="new-cus-value">0</h1>
+        <h2 class="block-title">新客數</h2>
+      </div>
+      <div class="block-info">
+        <h1 class="block-value" id="old-cus-value">0</h1>
+        <h2 class="block-title">舊客數</h2>
+      </div>
+      <div class="block-info">
+        <h1 class="block-value" id="old-back-value">0</h1>
+        <h2 class="block-title">舊客回購率</h2>
+      </div>
+    </div>
+  </div>
+  <div style="display:inline-block;">
+    <div class="block small-block cus-active" id="small-block-revenue">
+      <h1 class="small-block-name">總營收</h1>
+      <div class="small-block-infos">
+        <div class="small-block-info">
+          <h1 class="small-block-value" id="all-revenue-value">0</h1>
+          <h2 class="small-block-title">總消費</h2>
+        </div>
+        <div class="small-block-info">
+          <h1 class="small-block-value" id="new-cus-revenue-value">0</h1>
+          <h2 class="small-block-title">新客消費</h2>
+        </div>
+        <div class="small-block-info">
+          <h1 class="small-block-value" id="old-cus-revenue-value">0</h1>
+          <h2 class="small-block-title">舊客消費</h2>
+        </div>
+      </div>
+    </div>
+    <div class="block small-block" id="small-block-orderq">
+      <h1 class="small-block-name">訂單數</h1>
+      <div class="small-block-infos">
+        <div class="small-block-info">
+          <h1 class="small-block-value" id="all-orderq-value">0</h1>
+          <h2 class="small-block-title">總訂單</h2>
+        </div>
+        <div class="small-block-info">
+          <h1 class="small-block-value" id="new-cus-orderq-value">0</h1>
+          <h2 class="small-block-title">新客訂單</h2>
+        </div>
+        <div class="small-block-info">
+          <h1 class="small-block-value" id="old-cus-orderq-value">0</h1>
+          <h2 class="small-block-title">舊客訂單</h2>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="block square-block">
+    <svg></svg>
+  </div>
+  
+  <div class="block" id="block-customer">
+    <svg></svg>
+  </div>
+  
+  <style>
+    #date-picker,.date-select-btn{
+      display: inline-block;
+    }
+    #date-picker{
+      margin-right:15px;
+      border-radius: 6px;
+      padding: 8px 12px;
+      box-shadow: 0 6px 10px -4px rgba(0,0,0,.15);
+      margin-bottom: 20px;
+      background-color:#fff
+    }
+    p{
+      margin-bottom: 0;
+    }
+    .date-select-btn{
+      border-radius: 6px;
+      padding: 11px 12px;
+      font-size: 16px;
+      box-shadow: 0 6px 10px -4px rgba(0,0,0,.15);
+      margin-bottom: 20px;
+      background-color:#fff;
+      border: solid 2px #aaa;
+      font-weight: 500;
+    }
+    .date-select-btn:hover{
+      background-color:#aaa;
+      color: #fff
+    }
+    .date-select-btn:active, .date-select-btn:focus{
+      outline-color: #aaa;
+    }
+    .block{
+      border-radius: 12px;
+      box-shadow: 0 6px 10px -4px rgba(0,0,0,.15);
+      background-color: #fff;
+      color: #252422;
+      padding: 20px;
+      margin-bottom: 30px;
+    }
+    .small-block{
+      width: 500px;
+      height: 220px;
+      display: inline-block;
+      margin-right: 30px;
+      cursor: pointer;
+    }
+    .cus-active{
+      background-color: #ff8a54;
+    }
+    .small-block:hover{
+      background-color: #fcad62;
+    }
+    .small-block:hover h1, .cus-active h1, .small-block:hover h2, .cus-active h2{
+      color: #fff;
+    }
+    .small-block:hover .small-block-name, .cus-active .small-block-name{
+      border-bottom: solid 2px #fff;
+    }
+    .small-block-infos,.block-infos{
+      text-align: center;
+    }
+    .small-block-infos{
+      margin-top: 40px;
+    }
+    .small-block-name{
+      color: #aaa;
+      font-weight: 400;
+      font-size: 28px;
+      text-align: center;
+      border-bottom: solid 2px #ddd;
+      padding-bottom: 20px;
+      letter-spacing: 1px;
+    }
+    .small-block-info{
+      display: inline-block;
+      width: 150px;
+    }
+    .block-info{
+      display: inline-block;
+      width: 250px;
+    }
+    .small-block-title, .small-block-value{
+      text-align: center;
+    }
+    .small-block-title{
+      font-weight: 400;
+    }
+    .square-block{
+      width: 750px;
+      height: 500px;
+      margin-right: 30px;
+      padding: 0px;
+    }
+    .square-block svg{
+      width: 750px;
+      height: 500px;
+    }
+    #block-customer{
+      width: 1250px;
+    }
+    #block-customer svg{
+      width: 1200px;
+      height: 500px;
+    }
+    #block-customer-overview{
+      width: 1077px;
+      height: 150px;
+      display: flex;
+      align-items: center;
+    }
+    .donut-title{
+      font-size: 24px;
+      font-weight: 500;
+      fill: #333;
+    }
+    .donut-label{
+      font-size: 20px;
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/6.3.1/d3.min.js" integrity="sha512-9H86d5lhAwgf2/u29K4N5G6pZThNOojI8kMT4nT4NHvVR02cM85M06KJRQXkI0XgQWBpzQyIyr8LVomyu1AQdw==" crossorigin="anonymous"></script>
+  <style>
+    .axis path,.axis line {
+      stroke: #F2E8DE;
+    }
+    text{
+      fill: #999;
+    }
+    line {
+      stroke-width: 1.5px;
+    }
+    path{
+      stroke-width: 2px;
+    }
+    .old-path{
+      stroke-dasharray: 5,5;
+    }
+  </style>
+  <link rel="stylesheet" href="//code.jquery.com/ui/1.12.0/themes/base/jquery-ui.css">
+  <script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.5.1.js"></script>
+  <script src="https://code.jquery.com/ui/1.12.0/jquery-ui.js" defer></script>
+  <script>
+    // 時間傳回.py再傳回
+    window.onload=function(){
+      // 若url有參數就先套用
+      keepValue()
+      $("#startdate").datepicker({ onSelect: function () { 
+
+      }, changeMonth: true, changeYear: true, dateFormat : "yy-mm-dd" });
+
+      $("#enddate").datepicker({ onSelect: function () { 
+
+      }, changeMonth: true, changeYear: true, dateFormat : "yy-mm-dd" });
+
+    };
+
+    //這裡只是保留原有選擇
+    function keepValue() {
+      var startDate = new Date('{{startDate}}');
+      var endDate = new Date('{{endDate}}');
+
+      if(new URL(window.location).searchParams.get("startdate")){
+        $('#startdate').val(new URL(window.location).searchParams.get("startdate"));
+      } else{
+        $('#startdate').val(startDate.getFullYear()+'-'+(startDate.getMonth()+1)+'-'+startDate.getDate());
+      }
+
+      if(new URL(window.location).searchParams.get("enddate")){
+        $('#enddate').val(new URL(window.location).searchParams.get("enddate"));
+      } else{
+        $('#enddate').val(endDate.getFullYear()+'-'+(endDate.getMonth()+1)+'-'+endDate.getDate());
+      }
+    }
+
+    //確保日期沒有輸入錯誤
+    function validateDate() {
+      var start = $('#startdate').val();
+      var end = $('#enddate').val();
+      if (start > end){ 
+        $("#date-alert").show();
+        return false
+      } else{
+        $("#date-alert").hide();
+      }
+    }
+
+    function closeDateAlert(){
+      $("#date-alert").hide();
+    }
+  </script>
+  <script>
+
+    var allOldCus = JSON.parse('{{ order_all_oldcus | safe}}');
+    var oldCus = JSON.parse('{{ order_oldcus | safe}}');
+    var newCus = JSON.parse('{{ order_newcus | safe}}');
+    // console.log(allOldCus)
+    // console.log(oldCus)
+    // console.log(newCus)
+
+    // control active
+    smallBlRevenue = document.getElementById("small-block-revenue");
+    smallBlOrderq = document.getElementById("small-block-orderq");
+    smallBlRevenue.addEventListener('click', function () {
+      smallBlRevenue.classList.add("cus-active");
+      smallBlOrderq.classList.remove("cus-active");
+      customerOverview(40000000,"revenue","新舊客總營收變化趨勢","每月新客總營收","每月舊客總營收");
+    });
+    smallBlOrderq.addEventListener('click', function () {
+      smallBlRevenue.classList.remove("cus-active");
+      smallBlOrderq.classList.add("cus-active");
+      customerOverview(20000,"orderq","新舊客訂單數變化趨勢","每月新客訂單數","每月舊客訂單數");
+    });
+
+    var block = d3.selectAll("#block-customer svg");
+    var blDonut = d3.selectAll(".square-block svg")
+                .append("g")
+                .attr("transform", "translate(375,250)");
+    var height = 500;
+    var width = 1200;
+
+    var newViewDate = new Date(Date.now());
+    var oldViewDate = new Date(Date.now());
+    newViewDate = new Date(newViewDate.setDate(newViewDate.getDate()-1));
+    oldViewDate = new Date(oldViewDate.setMonth(newViewDate.getMonth()-12));
+
+    var parseDate = d3.timeFormat("%Y-%m-%d 00:00");
+
+    function customerOverview(y_domain,blockCat,blockTitle,newLegend,oldLegend){
+      block.selectAll("g").remove();
+      block.selectAll("path").remove();
+      block.selectAll("text").remove();
+      blDonut.selectAll("path").remove();
+      blDonut.selectAll("text").remove();
+      blDonut.selectAll("polyline").remove();
+      
+      var x = d3.scaleTime()
+                .domain([new Date(parseDate(oldViewDate)),new Date(parseDate(newViewDate))])
+                .range([0,width-100]);
+      var xAxis = d3.axisBottom(x)
+                    .tickFormat(d3.timeFormat("%b"));
+      // x軸位置
+      block.append("g")
+        .attr("class", "x axis")
+        .attr("transform", "translate(70,"+(height-40)+")")
+        .call(xAxis);
+
+      var y = d3.scaleLinear()
+              .domain([0,y_domain])
+              .range([height-120,0]);
+
+      var yAxis = d3.axisLeft(y);
+
+      // y軸位置
+      block.append("g")
+        .attr("class", "y axis")
+        .attr("transform", "translate(70, 80)")
+        .call(yAxis);
+      
+      //legend
+      var legendName = [{name: newLegend},{name: oldLegend}];
+      var color = d3.scaleOrdinal(["#FCAD62","#cdcdcd"]);
+
+      var legend = block.selectAll(".legend")
+                .data(legendName)
+                .enter()
+                .append('g')
+                .attr('class', "legend");
+
+      legend.append('rect')
+        .attr('x', width - 200)
+        .attr('y', (d, i) => height/5 - (i + 1) * 20)
+        .attr('width', 10)
+        .attr('height', 10)
+        .style('fill', (d) => color(d.name));
+
+      legend.append('text')
+        .attr('x', width - 180)
+        .attr('y', (d, i) => height/5 - (i + 1) * 20 + 10)
+        .attr("font-size","16px")
+        .text((d) => d.name);
+
+      // title
+      block.append("text")
+        .attr('x', width/2)
+        .attr('y', 40)
+        .text(blockTitle)
+        .style("text-anchor", "middle")
+        .attr("font-size","20px");
+
+      blDonut.append("text")
+        .attr('x', 0)
+        .attr('y', 0)
+        .attr("class", "donut-title")
+        .text("新舊客消費佔比")
+        .style("text-anchor", "middle");
+          
+      var oldTotal = 0;
+      var newTotal = 0;
+      //把全部的total分12個月
+      var newCusData = new Array(12).fill(null).map(()=>({}));
+      var oldCusData = new Array(12).fill(null).map(()=>({}));
+      newCusData.forEach((data,i) =>{
+        if(newViewDate.getMonth() < i){
+          newViewDay = newViewDate.getFullYear()-1 + "-" + (i+1) + "-01";
+        }else{
+          newViewDay = newViewDate.getFullYear() + "-" + (i+1) + "-01";
+        }
+        data.month = new Date(newViewDay);
+        data.id = [];
+        data.id_sum = 0;
+      })
+      oldCusData.forEach((data,i) =>{
+        if(newViewDate.getMonth() < i){
+          newViewDay = newViewDate.getFullYear()-1 + "-" + (i+1) + "-01";
+        }else{
+          newViewDay = newViewDate.getFullYear() + "-" + (i+1) + "-01";
+        }
+        data.month = new Date(newViewDay);
+        data.id = [];
+        data.id_sum = 0;
+      })
+    
+      newCus.forEach(order =>{
+        m = new Date(order.purchase_date).getMonth();
+        if(blockCat == "orderq"){
+          newCusData[m].id.push(order.OID);
+        }else if(blockCat == "revenue"){
+          newTotal += +order.total;
+          newCusData[m].id_sum += +order.total;
+        }
+      })
+      
+      oldCus.forEach(order =>{
+        m = new Date(order.purchase_date).getMonth();
+        if(blockCat == "orderq"){
+          oldCusData[m].id.push(order.OID);
+        }else if(blockCat == "revenue"){
+          oldTotal += +order.total;
+          oldCusData[m].id_sum += +order.total;
+        }
+      })
+      
+      if(blockCat=="orderq"){
+        newCusData.forEach(data =>{
+          data.id_sum = data.id.length;
+          newTotal += data.id_sum;
+        })
+        oldCusData.forEach(data =>{
+          data.id_sum = data.id.length;
+          oldTotal += data.id_sum;
+        })
+      }
+      
+      var allTotal = newTotal + oldTotal;
+      //環圈圖
+      var radius = 230; //Math.min(width, height) / 2 - margin
+      var newPercent = (newTotal / allTotal * 100).toFixed(2) + "%";
+      var oldPercent = (oldTotal / allTotal * 100).toFixed(2) + "%";
+      var donutData = [{key:"新客"+newPercent,value:newTotal}, {key:"舊客"+oldPercent,value:oldTotal}];
+      var pie = d3.pie()
+                .sort(null) // Do not sort group by size
+                .value(function(d) {return d.value; });
+      
+      var data_ready = pie(donutData);
+      // console.log(donutData)
+      var arc = d3.arc()
+                .innerRadius(radius * 0.5)// This is the size of the donut hole
+                .outerRadius(radius * 0.8);
+      // Another arc that won't be drawn. Just for labels positioning
+      var outerArc = d3.arc()
+                .innerRadius(radius * 0.9)
+                .outerRadius(radius * 0.9);
+      blDonut.selectAll('allSlices')
+                .data(data_ready)
+                .enter()
+                .append('path')
+                .attr('d', arc)
+                .attr('fill', function(d){ return(color(d.data.key)) })
+                .attr("stroke", "white")
+                .style("stroke-width", "2px");
+      blDonut.selectAll('allPolylines')
+                .data(data_ready)
+                .enter()
+                .append('polyline')
+                .attr("stroke", "black")
+                .style("fill", "none")
+                .attr("stroke-width", 1)
+                .attr('points', function(d) {
+                  var posA = arc.centroid(d) // line insertion in the slice
+                  var posB = outerArc.centroid(d) // line break: we use the other arc generator that has been built only for that
+                  var posC = outerArc.centroid(d); // Label position = almost the same as posB
+                  var midangle = d.startAngle + (d.endAngle - d.startAngle) / 2 // we need the angle to see if the X position will be at the extreme right or extreme left
+                  posC[0] = radius * 0.95 * (midangle < Math.PI ? 1 : -1); // multiply by 1 or -1 to put it on the right or on the left
+                  return [posA, posB, posC]
+                });
+      
+      // Add the polylines between chart and labels:
+      blDonut.selectAll('allLabels')
+              .data(data_ready)
+              .enter()
+              .append('text')
+              .text( (d) => d.data.key )
+              .attr("class","donut-label")
+              .attr('transform', function(d) {
+                  var pos = outerArc.centroid(d);
+                  var midangle = d.startAngle + (d.endAngle - d.startAngle) / 2
+                  pos[0] = radius * 0.99 * (midangle < Math.PI ? 1 : -1);
+                  return 'translate(' + pos + ')';
+              })
+              .style('text-anchor', function(d) {
+                  var midangle = d.startAngle + (d.endAngle - d.startAngle) / 2
+                  return (midangle < Math.PI ? 'start' : 'end')
+              });
+
+      // 塞title value
+      if(blockCat == "revenue"){
+      document.getElementById("all-revenue-value").textContent = allTotal;
+      document.getElementById("new-cus-revenue-value").textContent = newTotal;
+      document.getElementById("old-cus-revenue-value").textContent = oldTotal; 
+      }else{
+      document.getElementById("all-orderq-value").textContent = allTotal;
+      document.getElementById("new-cus-orderq-value").textContent = newTotal;
+      document.getElementById("old-cus-orderq-value").textContent = oldTotal;
+      }
+
+      //整理順序
+      oldCusData.sort(function(a,b){
+        return a.month - b.month;
+      });
+      newCusData.sort(function(a,b){
+        return a.month - b.month;
+      });
+      
+      // 折線圖
+      var newCustomerLine = d3.line()
+              .x((d)=>x(d.month)+70)
+              .y((d)=>y(d.id_sum)+80);
+      var oldCustomerLine = d3.line()
+              .x((d)=>x(d.month)+70)
+              .y((d)=>y(d.id_sum)+80);
+      
+      block.append("path")
+            .datum(newCusData)
+            .attr("d",newCustomerLine)
+            .attr("fill","none")
+            .attr("stroke","#FCAD62")
+            .attr("opacity", 0)
+            .transition()
+            .duration(2000)
+            .attr("opacity", 1);
+      
+      block.append("path")
+            .datum(oldCusData)
+            .attr("class","old-path")
+            .attr("d",oldCustomerLine)
+            .attr("fill","none")
+            .attr("stroke","#cdcdcd")
+            .attr("opacity", 0)
+            .transition()
+            .duration(2000)
+            .attr("opacity", 1);
+
+      var oldCustomerText = block.selectAll('.old-customer-text')
+              .data(newCusData)
+              .enter()
+              .append("g")
+              .attr("class", "old-customer-text");
+      
+      var newCustomerText = block.selectAll('.new-customer-text')
+              .data(oldCusData)
+              .enter()
+              .append("g")
+              .attr("class", "new-customer-text");
+
+      oldCustomerText.append("text")
+            .attr("x",(d)=>x(d.month)+67)
+            .attr("y",(d)=>y(d.id_sum)+75)
+            .text((d)=>d.id_sum)
+            .attr("opacity", 0)
+            .transition()
+            .duration(2000)
+            .attr("opacity", 1);
+      
+      newCustomerText.append("text")
+            .attr("x",(d)=>x(d.month)+67)
+            .attr("y",(d)=>y(d.id_sum)+75)
+            .text((d)=>d.id_sum)
+            .attr("opacity", 0)
+            .transition()
+            .duration(2000)
+            .attr("opacity", 1);
+    }
+    customerOverview(20000,"orderq","新舊客訂單數變化趨勢","每月新客訂單數","每月舊客訂單數");
+    customerOverview(40000000,"revenue","新舊客總營收變化趨勢","每月新客總營收","每月舊客總營收");
+
+    var newMID = [];
+    var oldMID = [];
+    var allOldMID = []
+    newCus.forEach(data =>{
+      newMID.push(data.MID)
+    })
+    oldCus.forEach(data =>{
+      oldMID.push(data.MID)
+    })
+    allOldCus.forEach(data =>{
+      allOldMID.push(data.MID)
+    })
+    function onlyUnique(value, index, self) {
+      return self.indexOf(value) === index;
+    }
+    newMID = newMID.filter(onlyUnique);
+    oldMID = oldMID.filter(onlyUnique);
+    allOldMID = allOldMID.filter(onlyUnique);
+
+    var newTotal = newMID.length;
+    var oldTotal = oldMID.length;
+    var allOldTotal = allOldMID.length;
+
+    var allTotal = newTotal + oldTotal;
+    var oldBackPercent = allOldTotal==0? 0 : (oldTotal / allOldTotal * 100).toFixed(2);
+    document.getElementById("all-cus-value").textContent = allTotal;
+    document.getElementById("new-cus-value").textContent = newTotal;
+    document.getElementById("old-cus-value").textContent = oldTotal;
+    document.getElementById("old-back-value").textContent = oldBackPercent+'%';
+
+  </script>
+  
+{% endblock %}

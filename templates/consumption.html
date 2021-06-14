@@ -1,0 +1,564 @@
+{% extends "base.html" %}
+
+{% block dashboard_content %}
+  <div>
+    <h1 style="display: inline-block;">消費分析</h1>
+    <div id="pp-explain" class="explain">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-exclamation-circle" viewBox="0 0 16 16">
+        <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+        <path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 4.995z"/>
+      </svg>
+    </div>
+    <div style='position:relative;width:0;height:0;display:inline-block;'>
+      <div id="pp-tip" class="tip" style="width: 320px;">
+        「平均訂單價」為每筆訂單的平均金額(總營收/訂單數)<br>
+        「客單價」為每位客戶的平均歷史價值(總營收/客戶數)<br>
+        <button id="pp-tip-btn" class="tip-btn" type="button">Close</button>
+      </div>
+    </div>
+  </div>
+  <br>
+  <div id="date-picker">
+    <select id="date-select">
+      <option value=0>近一年內</option>
+      <option value=1>近半年內</option>
+      <option value=2>近三個月內</option>
+    </select>
+  </div>
+  <input class="date-select-btn" type="button" onclick="datePick()" value="Go">
+
+  <div>
+    <div class="block small-block con-active" id="small-block-revenue">
+      <h1 class="small-block-name">總營收</h1>
+      <h1 class="small-block-value">$0</h1>
+    </div>
+    <div class="block small-block" id="small-block-orderq">
+      <h1 class="small-block-name">訂單數</h1>
+      <h1 class="small-block-value">0 單</h1>
+    </div>
+    <div class="block small-block" id="small-block-qpp">
+      <h1 class="small-block-name">每次購買件數</h1>
+      <h1 class="small-block-value">0 件</h1>
+    </div>
+    <div class="block small-block" id="small-block-ppo">
+      <h1 class="small-block-name">平均訂單價</h1>
+      <h1 class="small-block-value">$0</h1>
+    </div>
+    <div class="block small-block" id="small-block-ppc">
+      <h1 class="small-block-name">客單價</h1>
+      <h1 class="small-block-value">$0</h1>
+    </div>
+  </div>
+
+  <div class="block" id="block-consumption">
+    <svg></svg>
+  </div>
+
+  <div class="chart" id="block-rank">
+    <h1>顧客排行榜(TOP50)</h1>
+    <div class="top50"><table></table></div>
+  </div>
+
+  <style>
+    #date-picker,.date-select-btn{
+      display: inline-block;
+      margin-right: 10px;
+    }
+    #date-picker select{
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 16px;
+      border: none;
+      box-shadow: 0 6px 10px -4px rgba(0,0,0,.15);
+      margin-bottom: 20px;
+      border-right: solid 8px transparent;
+    }
+    #date-picker select:active, #date-picker select:focus{
+      outline-color: #fcad62;
+    }
+    .date-select-btn{
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 16px;
+      box-shadow: 0 6px 10px -4px rgba(0,0,0,.15);
+      margin-bottom: 20px;
+      background-color:#fff;
+      border: solid 2px #aaa;
+      font-weight: 500;
+    }
+    .date-select-btn:hover{
+      background-color:#aaa;
+      color: #fff
+    }
+    .date-select-btn:active, .date-select-btn:focus{
+      outline-color: #aaa;
+    }
+    .explain{
+      display: inline-block;
+      cursor: pointer;
+      vertical-align: top;
+    }
+    .tip{
+      display: none;
+      padding: 12px;
+      border-radius: 6px;
+      background-color: #555;
+      color: #fff;
+      position: absolute;
+      width: 250px;
+      top: -30px;
+      left: 5px;
+      text-align: left;
+    }
+    .tip-btn{
+      background-color: #fff;
+      border: none;
+      border-radius: 6px;
+      color: #555;
+      margin: 10px 0 4px 0;
+      float: right;
+    }
+    .tip-btn:focus{
+      outline: none;
+    }
+    .block, .chart{
+      border-radius: 12px;
+      box-shadow: 0 6px 10px -4px rgba(0,0,0,.15);
+      background-color: #fff;
+      color: #252422;
+      padding: 20px;
+      margin-bottom: 30px;
+      display: inline-block;
+      margin-right: 30px;
+      vertical-align: top;
+    }
+    .small-block{
+      width: 320px;
+      height: 180px;
+      display: inline-block;
+      margin-right: 30px;
+      cursor: pointer;
+    }
+    .con-active{
+      background-color: #ff8a54;
+    }
+    .small-block:hover{
+      background-color: #fcad62;
+    }
+    .small-block:hover h1, .con-active h1{
+      color: #fff;
+    }
+    .small-block:hover .small-block-name, .con-active .small-block-name{
+      border-bottom: solid 2px #fff;
+    }
+    .small-block-name{
+      color: #aaa;
+      font-weight: 400;
+      font-size: 28px;
+      text-align: center;
+      border-bottom: solid 2px #ddd;
+      padding-bottom: 10px;
+      letter-spacing: 1px;
+      display: inline-block;
+    }
+    .small-block-value{
+      color: #222;
+      text-align: right;
+      font-size: 42px;
+      padding-top: 20px;
+    }
+    #block-consumption{
+      width: 1250px;
+      height: 500px;
+    }
+    #block-consumption svg{
+      width: 1200px;
+      height: 500px;
+    }
+    #block-rank{
+      width: 400px;
+      height: 500px;
+    }
+    #block-rank h1{
+      color: #aaa;
+      margin-top: 0px;
+      text-align: center;
+      font-size: 24px;
+      margin-bottom: 10px;
+    }
+    .top50{
+      height: 420px;
+      overflow: scroll;
+      padding: 0px 10px;
+    }
+    tr{
+      display: block;
+      border-bottom: solid 1px #eee;
+    }
+    th,td{
+      width: 200px;
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/6.3.1/d3.min.js" integrity="sha512-9H86d5lhAwgf2/u29K4N5G6pZThNOojI8kMT4nT4NHvVR02cM85M06KJRQXkI0XgQWBpzQyIyr8LVomyu1AQdw==" crossorigin="anonymous"></script>
+  <style>
+    .axis path,.axis line {
+      stroke: #F2E8DE;
+    }
+    text{
+      fill: #999;
+    }
+    line {
+      stroke-width: 1.5px;
+    }
+    path{
+      stroke-width: 2px;
+    }
+  </style>
+  <script>
+    // tip
+    var ppExplain = document.getElementById("pp-explain");
+    var ppTip = document.getElementById("pp-tip");
+    var tipBtn = document.getElementById("pp-tip-btn");
+    ppExplain.addEventListener('click', function(){
+      if(ppTip.style.display == "inline-block"){
+        ppTip.style.display = "none";
+      }else{
+        ppTip.style.display = "inline-block";
+      }
+    })
+    tipBtn.addEventListener('click', function(){
+      ppTip.style.display = "none";
+    })
+  </script>
+  <script>
+    
+    var orders = JSON.parse(`{{ order_data | safe}}`);
+    var rankData1 = JSON.parse(`{{ order_rank1 | safe}}`);
+    var rankData2 = JSON.parse(`{{ order_rank2 | safe}}`);
+    var rankData3 = JSON.parse(`{{ order_rank3 | safe}}`);
+    var rankData4 = JSON.parse(`{{ order_rank4 | safe}}`);
+    // console.log(rankData3);
+
+    orders.forEach(order =>{
+        order.sum = +order.sum.split(",").join("").split("$").join("");
+    })
+
+    // control active
+    smallBlRevenue = document.getElementById("small-block-revenue");
+    smallBlOrderq = document.getElementById("small-block-orderq");
+    smallBlQPP = document.getElementById("small-block-qpp");
+    smallBlPPO = document.getElementById("small-block-ppo");
+    smallBlPPC = document.getElementById("small-block-ppc");
+
+    smallBlRevenue.addEventListener('click', function () {
+      smallBlRevenue.classList.add("con-active");
+      smallBlOrderq.classList.remove("con-active");
+      smallBlQPP.classList.remove("con-active");
+      smallBlPPO.classList.remove("con-active");
+      smallBlPPC.classList.remove("con-active");
+      consumptionOverview(50000000,"revenue","總營收變化趨勢","每月總營收",["顧客名","消費額"],filterRankData1);
+    });
+    smallBlOrderq.addEventListener('click', function () {
+      smallBlRevenue.classList.remove("con-active");
+      smallBlOrderq.classList.add("con-active");
+      smallBlQPP.classList.remove("con-active");
+      smallBlPPO.classList.remove("con-active");
+      smallBlPPC.classList.remove("con-active");
+      consumptionOverview(20000,"orderq","訂單數變化趨勢","每月訂單數",["顧客名","訂單數"],filterRankData2);
+    });
+    smallBlQPP.addEventListener('click', function () {
+      smallBlRevenue.classList.remove("con-active");
+      smallBlOrderq.classList.remove("con-active");
+      smallBlQPP.classList.add("con-active");
+      smallBlPPO.classList.remove("con-active");
+      smallBlPPC.classList.remove("con-active");
+      consumptionOverview(6,"qpp","每次購買件數變化趨勢","月平均每次購買件數",["顧客名","平均購買件數"],filterRankData3);
+    });//不包含贈品
+    smallBlPPO.addEventListener('click', function () {
+      smallBlRevenue.classList.remove("con-active");
+      smallBlOrderq.classList.remove("con-active");
+      smallBlQPP.classList.remove("con-active");
+      smallBlPPO.classList.add("con-active");
+      smallBlPPC.classList.remove("con-active");
+      consumptionOverview(8000,"ppo","平均訂單價變化趨勢","月平均訂單價",["顧客名","平均訂單價"],filterRankData4)
+    });
+    smallBlPPC.addEventListener('click', function () {
+      smallBlRevenue.classList.remove("con-active");
+      smallBlOrderq.classList.remove("con-active");
+      smallBlQPP.classList.remove("con-active");
+      smallBlPPO.classList.remove("con-active");
+      smallBlPPC.classList.add("con-active");
+      consumptionOverview(8000,"ppc","客單價變化趨勢","月平均客單價",["顧客名","平均客單價"],filterRankData1)
+    });
+
+    var block = d3.selectAll(".block svg");
+    var table = d3.select(".chart table")
+    var height = 500;
+    var width = 1200;
+
+    var newViewDate = new Date(Date.now());
+    var oldViewDate = new Date(Date.now());
+    newViewDate = new Date(newViewDate.setDate(newViewDate.getDate()-1));
+    oldViewDate = new Date(oldViewDate.setMonth(newViewDate.getMonth()-12));
+
+    var parseDate = d3.timeFormat("%Y-%m-%d 00:00");
+
+    function consumptionOverview(y_domain,blockCat,blockTitle,blockLegend,rank_columns,rank_data){
+
+      block.selectAll("g").remove();
+      block.selectAll("path").remove();
+      block.selectAll("text").remove();
+
+      table.select("thead").remove();
+      table.select("tbody").remove();
+      
+      var x = d3.scaleTime()
+              .domain([new Date(parseDate(oldViewDate)),new Date(parseDate(newViewDate))])
+              .range([0,width-100]);
+      var xAxis = d3.axisBottom(x)
+                    .tickFormat(d3.timeFormat("%b"));
+      // x軸位置
+      block.append("g")
+        .attr("class", "x axis")
+        .attr("transform", "translate(80,"+(height-70)+")")
+        .call(xAxis);
+      
+      var y = d3.scaleLinear()
+              .domain([0,y_domain])
+              .range([height-120,0]);
+
+      var yAxis = d3.axisLeft(y);
+
+      // y軸位置
+      block.append("g")
+        .attr("class", "y axis")
+        .attr("transform", "translate(80, 50)")
+        .call(yAxis);
+
+      //把全部的MID分12個月
+      var newViewData = new Array(12).fill(null).map(()=>({}));
+      newViewData.forEach((data,i) =>{
+        if(newViewDate.getMonth() < i){
+          newViewDay = newViewDate.getFullYear()-1 + "-" + (i+1) + "-01";
+        }else{
+          newViewDay = newViewDate.getFullYear() + "-" + (i+1) + "-01";
+        }
+        data.month = new Date(newViewDay);
+        data.mid = [];
+        data.id_sum = 0;
+        data.mid_sum = 0;
+      })
+
+      var total = 0;
+      
+      filterOrders.forEach(order =>{
+        m = new Date(order.purchase_date).getMonth();
+        if(blockCat == "orderq"){
+          newViewData[m].mid.push(order.OID);
+        }else if(blockCat == "revenue"){
+          total += order.sum;
+          newViewData[m].id_sum += order.sum;
+        }else if(blockCat == "qpp"){
+          //排除贈品
+          if (order.sum != 0){
+            total += parseInt(order.quantity);
+            newViewData[m].mid.push(order.OID);
+            newViewData[m].id_sum += parseInt(order.quantity);
+          }
+        }else if(blockCat == "ppo"){
+          total += order.sum;
+          newViewData[m].mid.push(order.OID);
+          newViewData[m].id_sum += order.sum;
+        }
+        else if(blockCat == "ppc"){
+          total += order.sum;
+          newViewData[m].mid.push(order.MID);
+          newViewData[m].id_sum += order.sum;
+        }
+      })
+
+      function onlyUnique(value, index, self) {
+        return self.indexOf(value) === index;
+      }
+      // 過濾每個月訂單的MID或OID不重複
+      var count = 0;
+      if(blockCat == "orderq" || blockCat == "qpp" || blockCat == "ppo" || blockCat == "ppc"){
+        newViewData.forEach((d,i) =>{
+          newViewData[i].mid = d.mid.filter(onlyUnique);
+          count += newViewData[i].mid.length;
+          if(blockCat == "orderq"){
+            newViewData[i].id_sum = newViewData[i].mid.length;
+          }else if(blockCat == "qpp" || blockCat == "ppo" || blockCat == "ppc"){
+            newViewData[i].mid_sum = newViewData[i].mid.length;
+            if(newViewData[i].mid_sum == 0){
+              newViewData[i].id_sum = 0;
+            }else{
+              newViewData[i].id_sum = (newViewData[i].id_sum / newViewData[i].mid_sum).toFixed(2);
+            }
+          }
+        })
+      }
+      
+      // 計算title value
+      if(blockCat == "revenue"){
+        document.getElementsByClassName("small-block-value")[0].textContent = '$' +total;
+      }else if(blockCat == "orderq"){
+        document.getElementsByClassName("small-block-value")[1].textContent = count + ' 單';
+      }else if(blockCat == "qpp"){
+        if(count != 0){
+          document.getElementsByClassName("small-block-value")[2].textContent = (total/count).toFixed(2) + ' 件';
+        }
+      }else if(blockCat == "ppo"){
+        if(count != 0){
+          document.getElementsByClassName("small-block-value")[3].textContent = '$' + (total/count).toFixed(2);
+        }
+      }else if(blockCat == "ppc"){
+        if(count != 0){
+          document.getElementsByClassName("small-block-value")[4].textContent = '$' + (total/count).toFixed(2);
+        }
+      }
+
+      thead = table.append("thead"),
+      tbody = table.append("tbody");
+      // 表頭
+      thead.append("tr")
+            .selectAll("th")
+            .data(rank_columns)
+            .enter()
+            .append("th")
+            .text((column)=>column)
+            .style("font-size","20px")
+            .style("text-align", "left");
+      //資料行
+      var rows = tbody.selectAll("tr")
+            .data(rank_data.slice(0, 50))
+            .enter()
+            .append("tr");
+
+      //資料內容
+      var cells = rows.selectAll("td")
+            .data(function(row) {
+                return ['user','target'].map(function(column) {
+                    return {column: column, value: row[column]};
+                });
+            })
+            .enter()
+            .append("td")
+            .html((d)=>d.value)
+            .style("font-size","18px")
+
+      //整理順序
+      newViewData.sort(function(a,b){
+        return a.month - b.month;
+      });
+
+      // 折線圖
+      var consumptionLine = d3.line()
+              .x((d)=>x(d.month)+80)
+              .y((d)=>y(d.id_sum)+50);
+      block.append("path")
+            .datum(newViewData)
+            .attr("d",consumptionLine)
+            .attr("fill","none")
+            .attr("stroke","#ff8a54")
+            .attr("opacity", 0)
+            .transition()
+            .duration(2000)
+            .attr("opacity", 1);
+
+      var consumptionText = block.selectAll('.consumption-text')
+              .data(newViewData)
+              .enter()
+              .append("g")
+              .attr("class", "consumption-text");
+
+      consumptionText.append("text")
+            .attr("x",(d)=>x(d.month)+77)
+            .attr("y",(d)=>y(d.id_sum)+45)
+            .text((d)=>d.id_sum)
+            .attr("opacity", 0)
+            .transition()
+            .duration(2000)
+            .attr("opacity", 1);
+
+      //legend
+      var legendName = [{name: blockLegend}];
+      var color = d3.scaleOrdinal(["#ff8a54","#cdcdcd"]);
+
+      var legend = block.selectAll(".legend")
+                .data(legendName)
+                .enter()
+                .append('g')
+                .attr('class', "legend");
+
+      legend.append('rect')
+        .attr('x', width - 180)
+        .attr('y', 60)
+        .attr('width', 10)
+        .attr('height', 10)
+        .style('fill', (d) => color(d.name));
+
+      legend.append('text')
+        .attr('x', width - 160)
+        .attr('y', 70)
+        .text((d) => d.name)
+        .attr("font-size", "16px");
+
+      // title
+      block.append("text")
+        .attr('x', width/2)
+        .attr('y', 40)
+        .text(blockTitle)
+        .style("text-anchor", "middle")
+        .attr("font-size","20px");
+    }
+
+    var filterOrders = [];
+    var filterRankData1 = [];
+    var filterRankData2 = [];
+    var filterRankData3 = [];
+    var filterRankData4 = [];
+
+    //時間function
+    //半個月
+    function halfYear(item){
+      return new Date().setMonth(new Date().getMonth()-6) < new Date(item.purchase_date);
+    }
+    //三個月
+    function threeMonths(item){
+      return new Date().setMonth(new Date().getMonth()-3) < new Date(item.purchase_date);
+    }
+
+    //篩選時間
+    function datePick(){
+      var i = document.getElementById("date-select").selectedIndex;
+      console.log(i)
+      if(i==0){
+        filterOrders = orders;
+        filterRankData1 = rankData1;
+        filterRankData2 = rankData2;
+        filterRankData3 = rankData3;
+        filterRankData4 = rankData4;
+      }else if(i==1){
+        filterOrders = orders.filter(halfYear);
+        filterRankData1 = rankData1.filter(halfYear);
+        filterRankData2 = rankData2.filter(halfYear);
+        filterRankData3 = rankData3.filter(halfYear);
+        filterRankData4 = rankData4.filter(halfYear);
+      }else if(i==2){
+        filterOrders = orders.filter(threeMonths);
+        filterRankData1 = rankData1.filter(threeMonths);
+        filterRankData2 = rankData2.filter(threeMonths);
+        filterRankData3 = rankData3.filter(threeMonths);
+        filterRankData4 = rankData4.filter(threeMonths);
+      }
+      consumptionOverview(20000,"orderq","訂單數變化趨勢","每月訂單數",["顧客名","訂單數"],filterRankData2);
+      consumptionOverview(6,"qpp","每次購買件數變化趨勢","月平均每次購買件數",["顧客名","平均購買件數"],filterRankData3);
+      consumptionOverview(8000,"ppo","平均訂單價變化趨勢","月平均訂單價",["顧客名","平均訂單價"],filterRankData4);
+      consumptionOverview(8000,"ppc","客單價變化趨勢","月平均客單價",["顧客名","平均客單價"],filterRankData1);
+      consumptionOverview(50000000,"revenue","總營收變化趨勢","每月總營收",["顧客名","消費額"],filterRankData1);
+    }
+    datePick()
+  </script>
+
+{% endblock %}

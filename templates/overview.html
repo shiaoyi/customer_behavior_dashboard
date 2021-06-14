@@ -1,0 +1,911 @@
+{% extends "base.html" %}
+
+{% block dashboard_content %}
+  <h1>Overview</h1>
+  <br>
+  <div class="ov" id="ov-transaction">
+    <div class="day-info">
+      <h3 class="day-type" id="day-transaction"></h3>
+      <h3 class="type-trend" id="transaction-trend"></h3>
+    </div>
+    <svg></svg>
+  </div>
+
+  <div class="ov" id="ov-order">
+    <div class="day-info">
+      <h3 class="day-type" id="day-order"></h3>
+      <h3 class="type-trend" id="order-trend"></h3>
+    </div>
+    <svg></svg>
+  </div>
+
+  <div class="ov" id="ov-purchase">
+    <div class="day-info">
+      <h3 class="day-type" id="day-purchase"></h3>
+      <h3 class="type-trend" id="purchase-trend"></h3>
+    </div>
+    <svg></svg>
+  </div>
+
+  <div class="ov" id="ov-member">
+    <div class="day-info">
+      <h3 class="day-type" id="day-member"></h3>
+      <h3 class="type-trend" id="member-trend"></h3>
+    </div>
+    <svg></svg>
+  </div>
+
+  <div class="ov-date" id="ov-register">
+    <div class="day-info">
+      <h3 class="day-type" id="day-line"></h3>
+      <h3 class="type-trend" id="line-trend"></h3>
+    </div>
+    <svg></svg>
+  </div>
+
+  <style>
+    .ov, .ov-date{
+      border-radius: 12px;
+      box-shadow: 0 6px 10px -4px rgba(0,0,0,.15);
+      background-color: #fff;
+      color: #252422;
+      margin-bottom: 80px;
+      padding: 20px;
+      width: 1200px;
+    }
+    svg{
+      width: 1150px;
+      height: 500px;
+    }
+    .day-info{
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 20px 0px 20px;
+    }
+    .day-type{
+      display: flex;
+      color: #333;
+      margin: 0 10px 0 0;
+      display: inline-block;
+      font-size: 30px;
+      font-weight: 500;
+    }
+    .type-trend{
+      font-size: 26px;
+      color: #fff;
+      display: flex;
+      margin: 0;
+      padding: 3px 10px;
+      border-radius: 20px;
+    }
+  </style>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/6.3.1/d3.min.js" integrity="sha512-9H86d5lhAwgf2/u29K4N5G6pZThNOojI8kMT4nT4NHvVR02cM85M06KJRQXkI0XgQWBpzQyIyr8LVomyu1AQdw==" crossorigin="anonymous"></script>
+  <script>
+    
+    var orders = JSON.parse('{{ order_data | safe}}');
+    var members = JSON.parse('{{ member_data | safe}}');
+    var dateMembers = JSON.parse('{{ date_member_data | safe}}');
+    // console.log(orders);
+
+    var ov = d3.selectAll(".ov svg");
+    var ovDate = d3.selectAll(".ov-date svg");
+    var ovTransaction = d3.select("#ov-transaction svg");
+    var ovOrder= d3.select("#ov-order svg");
+    var ovPurchase= d3.select("#ov-purchase svg");
+    var ovMember= d3.select("#ov-member svg");
+    var ovRegister= d3.select("#ov-register svg");
+    var height = 500;
+    var width = 1150;
+  
+    var nowDate = new Date(Date.now());
+    var newViewDate = new Date(Date.now());
+    var oldViewDate = new Date(Date.now());
+    var dateViewDate = new Date(Date.now());
+    newViewDate = new Date(newViewDate.setDate(nowDate.getDate()-1)); //昨天
+    oldViewDate = new Date(oldViewDate.setDate(nowDate.getDate()-2)); //前天
+    dateViewDate = new Date(dateViewDate.setDate(nowDate.getDate()-15)); //十五天前
+
+    var parseDate = d3.timeFormat("%Y-%m-%d 00:00");
+    var x = d3.scaleTime()
+              .domain([new Date(parseDate(newViewDate)),new Date(parseDate(nowDate))])
+              .range([0,width-130]);
+    var xAxis = d3.axisBottom(x)
+              .ticks(24);
+
+    var xDate = d3.scaleTime()
+              .domain([new Date(parseDate(dateViewDate)),new Date(parseDate(newViewDate))])
+              .range([0,width-130]);
+    var xDateAxis = d3.axisBottom(xDate)
+              .tickFormat(d3.timeFormat("%m/%d"));
+
+    // x軸位置
+    ov.append("g")
+      .attr("class", "x axis")
+      .attr("transform", "translate(60,"+(height-40)+")")
+      .call(xAxis);
+    ovDate.append("g")
+      .attr("class", "x axis")
+      .attr("transform", "translate(60,"+(height-40)+")")
+      .call(xDateAxis);
+
+    // 新舊資料分開建立
+    var newViewData = new Array(24).fill(0);
+    var oldViewData = new Array(24).fill(0);
+    var dateViewData = new Array(15).fill(0);
+
+    // 新格式增加時間、金額和id初始化
+    var newViewDay = newViewDate.getFullYear()+ "-" + (newViewDate.getMonth()+1) + "-" + newViewDate.getDate() + " ";
+    var oldViewDay = oldViewDate.getFullYear()+ "-" + (oldViewDate.getMonth()+1) + "-" + oldViewDate.getDate() + " ";
+    
+    for(var i = 0; i < 24; i++){
+      var newHourOrder = {};
+      var oldHourOrder = {};
+      
+      nd = newViewDay + (i+1) + ":00";
+      newHourOrder.o_date = nd;
+      newHourOrder.o_sum = 0;
+      newHourOrder.o_id = [];
+      newHourOrder.o_member = 0;
+      
+      od = oldViewDay + (i+1) + ":00";
+      oldHourOrder.o_date = od;
+      oldHourOrder.o_sum = 0;
+      oldHourOrder.o_id = [];
+      oldHourOrder.o_member = 0;
+      
+      newViewData[i] =  newHourOrder;
+      oldViewData[i] =  oldHourOrder;
+    }
+
+    // 註冊會員初始化
+    var parseDate = d3.timeFormat("%Y-%m-%d");
+    for(var i = 0; i < 15; i++){
+      var dateMember = {};
+      var dateTime = new Date(dateViewDate.getFullYear(), dateViewDate.getMonth(), dateViewDate.getDate());
+      dateTime = new Date(dateTime.setDate(dateTime.getDate()+i))
+      dateMember.o_date = parseDate(dateTime);
+      dateMember.o_line = 0;
+      dateMember.o_fb= 0;
+      dateMember.o_first = 0;
+
+      dateViewData[i] = dateMember;
+    }
+    // console.log(dateViewData);
+
+    var newViewDay = newViewDate.getDate();
+    var oldViewDay = oldViewDate.getDate();
+    var newTranSum = 0;
+    var oldTranSum = 0;
+    orders.forEach(order => {
+      order.sum = +order.sum.split(",").join("").split("$").join("");
+      // 新格式增加金額、計算總交易額
+      h = new Date(order.purchase_date).getHours();
+      d = new Date(order.purchase_date).getDate();
+      if(d == newViewDay){
+        newTranSum += order.sum; 
+        newViewData[h].o_sum += order.sum;
+        newViewData[h].o_id.push(order.OID);
+      }else{
+        oldTranSum += order.sum;
+        oldViewData[h].o_sum += order.sum;
+        oldViewData[h].o_id.push(order.OID);
+      }
+    });
+    
+    var newMemberSum = 0;
+    var oldMemberSum = 0;
+    members.forEach(member =>{
+      h = new Date(member.join_date).getHours();
+      d = new Date(member.join_date).getDate();
+      if(d == newViewDay){
+        newMemberSum += 1; 
+        newViewData[h].o_member += 1;
+      }else{
+        oldMemberSum += 1;
+        oldViewData[h].o_member += 1;
+      }
+    });
+
+    // 註冊會員塞資料 
+    dateMembers.forEach(member =>{
+      for(var i = 0; i < 15; i++){
+        if(member.join_date.substring(0, 10) == dateViewData[i].o_date){
+          if(member.register == "LINE"){
+            dateViewData[i].o_line += 1;
+          }else if(member.register == "臉書"){
+            dateViewData[i].o_fb += 1;
+          }else if(member.register == "First party"){
+            dateViewData[i].o_first += 1;
+          }
+          break;
+        }
+      }
+    })
+    // console.log(dateViewData);
+
+  // 取得各項最大值
+  var maxTran = 0;
+  var maxOrder = 0;
+  var maxPurchase = 0;
+  var maxMember = 0;
+  var maxRegister = 0
+
+  //處理各項趨勢
+  function showTrend(day_type_id,type_trend_id,newSum,oldSum,prefix,postfix){
+    document.getElementById(day_type_id).textContent = prefix + newSum + postfix;
+    document.getElementById(type_trend_id).textContent = ((newSum-oldSum)/oldSum*100).toFixed(2) + "%";
+      
+      if(((newSum-oldSum)/oldSum) <= 0 ){
+        document.getElementById(type_trend_id).style.backgroundColor = "#f24e4e";
+      }else{
+        document.getElementById(type_trend_id).style.backgroundColor = "#28a745";
+        document.getElementById(type_trend_id).textContent = "+" + ((newSum-oldSum)/oldSum*100).toFixed(2) + "%";
+      }
+  }
+
+  // 處理transaction
+  showTrend("day-transaction","transaction-trend",newTranSum,oldTranSum,"$","");
+  // 取得transaction最大值
+  var testMaxTran = 0;
+  for(var i=0; i<24;i++){
+    testMaxTran = newViewData[i].o_sum > oldViewData[i].o_sum? newViewData[i].o_sum : oldViewData[i].o_sum;
+    if(maxTran < testMaxTran){
+      maxTran = testMaxTran;
+    }
+  }
+
+  // 處理order
+  function onlyUnique(value, index, self) {
+    return self.indexOf(value) === index;
+  }
+  var newOrderSum = 0;
+  var oldOrderSum = 0;
+  for(var i=0; i<24;i++){
+    newViewData[i].o_id =  newViewData[i].o_id.filter(onlyUnique);
+    newViewData[i].o_id_q = newViewData[i].o_id.length;
+    newOrderSum += newViewData[i].o_id_q;
+    oldViewData[i].o_id =  oldViewData[i].o_id.filter(onlyUnique);
+    oldViewData[i].o_id_q =  oldViewData[i].o_id.length;
+    oldOrderSum += oldViewData[i].o_id_q;
+  }
+  showTrend("day-order","order-trend",newOrderSum,oldOrderSum,"","單");
+  // 取得order最大值
+  var testMaxOrder = 0;
+  for(var i=0; i<24;i++){
+    testMaxOrder = newViewData[i].o_id_q > oldViewData[i].o_id_q? newViewData[i].o_id_q : oldViewData[i].o_id_q;
+    if(maxOrder < testMaxOrder){
+      maxOrder = testMaxOrder;
+    }
+  }
+
+  // 處理purchase
+  for(var i=0; i<24;i++){
+    newViewData[i].o_ppo = newViewData[i].o_id_q==0? 0 : (newViewData[i].o_sum / newViewData[i].o_id_q).toFixed(2);
+    oldViewData[i].o_ppo = oldViewData[i].o_id_q==0? 0 : (oldViewData[i].o_sum / oldViewData[i].o_id_q).toFixed(2);
+  }
+  var newPurchaseMean = newOrderSum==0? 0 : newTranSum / newOrderSum;
+  var oldPurchaseMean =  oldOrderSum==0? 0 : oldTranSum / oldOrderSum;
+  showTrend("day-purchase","purchase-trend",newPurchaseMean.toFixed(2),oldPurchaseMean,"$","/單");
+  // 取得purchase最大值
+  var testMaxPurchase = 0;
+  for(var i=0; i<24;i++){
+    testMaxPurchase = newViewData[i].o_ppo > oldViewData[i].o_ppo? newViewData[i].o_ppo : oldViewData[i].o_ppo;
+    if(maxPurchase < testMaxPurchase){
+      maxPurchase = testMaxPurchase;
+    }
+  }
+
+  // 處理member
+  showTrend("day-member","member-trend",newMemberSum,oldMemberSum,"","人");
+  // 取得member最大值
+  var testMaxMember = 0;
+  for(var i=0; i<24;i++){
+    testMaxMember = newViewData[i].o_member > oldViewData[i].o_member? newViewData[i].o_member : oldViewData[i].o_member;
+    if(maxMember < testMaxMember){
+      maxMember = testMaxMember;
+    }
+  }
+
+  // 取得register最大值
+  var testMaxRegister = 0;
+  for(var i=0; i<15; i++){
+    testMaxRegister = dateViewData[i].o_line > dateViewData[i].o_fb? (dateViewData[i].o_line > dateViewData[i].o_first? dateViewData[i].o_line:dateViewData[i].o_first) : (dateViewData[i].o_fb > dateViewData[i].o_first? dateViewData[i].o_fb:dateViewData[i].o_first);
+    if(maxRegister < testMaxRegister){
+      maxRegister = testMaxRegister;
+    }
+  }
+
+  // y軸範圍
+  var yTransaction = d3.scaleLinear()
+            .domain([0,maxTran*1.1])
+            .range([height-120,0]);
+  var yOrder = d3.scaleLinear()
+            .domain([0,maxOrder*1.1])
+            .range([height-120,0]);
+  var yPurchase = d3.scaleLinear()
+            .domain([0,maxPurchase*1.1])
+            .range([height-120,0]);
+  var yMember = d3.scaleLinear()
+            .domain([0,maxMember*1.1])
+            .range([height-120,0]);
+  var yRegister = d3.scaleLinear()
+            .domain([0,maxRegister*1.1])
+            .range([height-120,0]);
+
+  var yTransactionAxis = d3.axisLeft(yTransaction);
+  var yOrderAxis = d3.axisLeft(yOrder);
+  var yPurchaseAxis = d3.axisLeft(yPurchase);
+  var yMemberAxis = d3.axisLeft(yMember);
+  var yRegisterAxis = d3.axisLeft(yRegister);
+  
+  // y軸位置
+  ovTransaction.append("g")
+    .attr("class", "y axis")
+    .attr("transform", "translate(60, 80)")
+    .call(yTransactionAxis)
+
+  ovOrder.append("g")
+      .attr("class", "y axis")
+      .attr("transform", "translate(60, 80)")
+      .call(yOrderAxis)
+
+  ovPurchase.append("g")
+      .attr("class", "y axis")
+      .attr("transform", "translate(60, 80)")
+      .call(yPurchaseAxis)
+  ovMember.append("g")
+      .attr("class", "y axis")
+      .attr("transform", "translate(60, 80)")
+      .call(yMemberAxis)
+  ovRegister.append("g")
+      .attr("class", "y axis")
+      .attr("transform", "translate(60, 80)")
+      .call(yRegisterAxis)
+    
+  // 折線圖
+  var newTranLine = d3.line()
+          .x((d)=>x(new Date(d.o_date))+60)
+          .y((d)=>yTransaction(d.o_sum)+80);
+  var newOrderLine = d3.line()
+          .x((d)=>x(new Date(d.o_date))+60)
+          .y((d)=>yOrder(d.o_id_q)+80);
+  var newPurchaseLine = d3.line()
+          .x((d)=>x(new Date(d.o_date))+60)
+          .y((d)=>yPurchase(d.o_ppo)+80);
+  var newMemberLine = d3.line()
+          .x((d)=>x(new Date(d.o_date))+60)
+          .y((d)=>yMember(d.o_member)+80);
+  
+  // 為了scale一樣，所以把oldViewData再加一天
+  var oldTranLine = d3.line()
+          .x((d)=>x(new Date(d.o_date).setDate(new Date(d.o_date).getDate()+1))+60)
+          .y((d)=>yTransaction(d.o_sum)+80);
+  var oldOrderLine = d3.line()
+          .x((d)=>x(new Date(d.o_date).setDate(new Date(d.o_date).getDate()+1))+60)
+          .y((d)=>yOrder(d.o_id_q)+80);
+  var oldPurchaseLine = d3.line()
+          .x((d)=>x(new Date(d.o_date).setDate(new Date(d.o_date).getDate()+1))+60)
+          .y((d)=>yPurchase(d.o_ppo)+80);
+  var oldMemberLine = d3.line()
+          .x((d)=>x(new Date(d.o_date).setDate(new Date(d.o_date).getDate()+1))+60)
+          .y((d)=>yMember(d.o_member)+80)
+
+  // Register折線圖
+  var registerLineLine = d3.line()
+          .x((d)=>xDate(new Date(d.o_date))+35)
+          .y((d)=>yRegister(d.o_line)+80);
+  var registerFbLine = d3.line()
+          .x((d)=>xDate(new Date(d.o_date))+35)
+          .y((d)=>yRegister(d.o_fb)+80);
+  var registerFirstLine = d3.line()
+          .x((d)=>xDate(new Date(d.o_date))+35)
+          .y((d)=>yRegister(d.o_first)+80);
+  
+  ovTransaction.append("path")
+    .datum(newViewData)
+    .attr("d",newTranLine)
+    .attr("fill","none")
+    .attr("stroke","#FCAD62")
+    .attr("opacity", 0)
+    .transition()
+    .duration(2000)
+    .attr("opacity", 1);
+
+  ovTransaction.append("path")
+    .datum(oldViewData)
+    .attr("d",oldTranLine)
+    .attr("class","old-path")
+    .attr("fill","none")
+    .attr("stroke","#cdcdcd")
+    .attr("opacity", 0)
+    .transition()
+    .duration(2000)
+    .attr("opacity", 1);
+
+  ovOrder.append("path")
+    .datum(newViewData)
+    .attr("d",newOrderLine)
+    .attr("fill","none")
+    .attr("stroke","#FCAD62")
+    .attr("opacity", 0)
+    .transition()
+    .duration(2000)
+    .attr("opacity", 1);
+
+  ovOrder.append("path")
+    .datum(oldViewData)
+    .attr("d",oldOrderLine)
+    .attr("class","old-path")
+    .attr("fill","none")
+    .attr("stroke","#cdcdcd")
+    .attr("opacity", 0)
+    .transition()
+    .duration(2000)
+    .attr("opacity", 1);
+
+  ovPurchase.append("path")
+    .datum(newViewData)
+    .attr("d",newPurchaseLine)
+    .attr("fill","none")
+    .attr("stroke","#FCAD62")
+    .attr("opacity", 0)
+    .transition()
+    .duration(2000)
+    .attr("opacity", 1);
+
+  ovPurchase.append("path")
+    .datum(oldViewData)
+    .attr("d",oldPurchaseLine)
+    .attr("class","old-path")
+    .attr("fill","none")
+    .attr("stroke","#cdcdcd")
+    .attr("opacity", 0)
+    .transition()
+    .duration(2000)
+    .attr("opacity", 1);
+
+  ovMember.append("path")
+    .datum(newViewData)
+    .attr("d",newMemberLine)
+    .attr("fill","none")
+    .attr("stroke","#FCAD62")
+    .attr("opacity", 0)
+    .transition()
+    .duration(2000)
+    .attr("opacity", 1);
+
+  ovMember.append("path")
+    .datum(oldViewData)
+    .attr("d",oldMemberLine)
+    .attr("class","old-path")
+    .attr("fill","none")
+    .attr("stroke","#cdcdcd")
+    .attr("opacity", 0)
+    .transition()
+    .duration(2000)
+    .attr("opacity", 1);
+
+  ovRegister.append("path")
+    .datum(dateViewData)
+    .attr("d",registerLineLine)
+    .attr("fill","none")
+    .attr("stroke","#00c300")
+    .attr("opacity", 0)
+    .transition()
+    .duration(2000)
+    .attr("opacity", 1);
+  
+  ovRegister.append("path")
+    .datum(dateViewData)
+    .attr("d",registerFbLine)
+    .attr("fill","none")
+    .attr("stroke","#3b5998")
+    .attr("opacity", 0)
+    .transition()
+    .duration(2000)
+    .attr("opacity", 1);
+    
+  ovRegister.append("path")
+    .datum(dateViewData)
+    .attr("d",registerFirstLine)
+    .attr("fill","none")
+    .attr("stroke","#cdcdcd")
+    .attr("opacity", 0)
+    .transition()
+    .duration(2000)
+    .attr("opacity", 1);
+
+  var lineRegisterText = ovRegister.selectAll('.line-register-text')
+    .data(dateViewData)
+    .enter()
+    .append("g")
+    .attr("class", "line-register-text");
+
+  lineRegisterText.append("text")
+    .attr("x",(d,i)=>(55 + i*73))
+    .attr("y",(d)=>yRegister(d.o_line)+80)
+    .text((d)=>d.o_line)
+    .attr("font-size", "14px")
+    .attr("opacity", 0)
+    .transition()
+    .duration(2000)
+    .attr("opacity", 1);
+
+  var fbRegisterText = ovRegister.selectAll('.fb-register-text')
+    .data(dateViewData)
+    .enter()
+    .append("g")
+    .attr("class", "fb-register-text");
+
+  fbRegisterText.append("text")
+    .attr("x",(d,i)=>(55 + i*73))
+    .attr("y",(d)=>yRegister(d.o_fb)+80)
+    .text((d)=>d.o_fb)
+    .attr("font-size", "14px")
+    .attr("opacity", 0)
+    .transition()
+    .duration(2000)
+    .attr("opacity", 1);
+
+  var firstRegisterText = ovRegister.selectAll('.first-register-text')
+    .data(dateViewData)
+    .enter()
+    .append("g")
+    .attr("class", "first-register-text");
+
+  firstRegisterText.append("text")
+    .attr("x",(d,i)=>(55 + i*73))
+    .attr("y",(d)=>yRegister(d.o_first)+80)
+    .text((d)=>d.o_first)
+    .attr("font-size", "14px")
+    .attr("opacity", 0)
+    .transition()
+    .duration(2000)
+    .attr("opacity", 1);
+
+
+  // title
+  ovTransaction.append("text")
+    .attr('x', width/2)
+    .attr('y', height/7)
+    .text("交易額")
+    .attr("font-size","20px")
+    .attr("text-anchor","middle");
+  ovOrder.append("text")
+    .attr('x', width/2)
+    .attr('y', height/7)
+    .text("訂單量")
+    .attr("font-size","20px")
+    .attr("text-anchor","middle");
+  ovPurchase.append("text")
+    .attr('x', width/2)
+    .attr('y', height/7)
+    .text("平均客單價")
+    .attr("font-size","20px")
+    .attr("text-anchor","middle");
+  ovMember.append("text")
+    .attr('x', width/2)
+    .attr('y', height/7)
+    .text("會員數")
+    .attr("font-size","20px")
+    .attr("text-anchor","middle");
+  ovRegister.append("text")
+    .attr('x', width/2)
+    .attr('y', 30)
+    .text("註冊會員數")
+    .attr("font-size","20px")
+    .attr("text-anchor","middle");
+
+  var color = d3.scaleOrdinal(["#FCAD62","#cdcdcd"]);
+  // Draw the legend
+  function showLegend(cat_data,ov_cat){
+    var legend =  ov_cat.selectAll(".legend")
+      .data(cat_data)
+      .enter()
+      .append('g')
+      .attr('class', "legend");
+
+    legend.append('rect')
+      .attr('x', width - 130)
+      .attr('y', (d, i) => height/6 - (i + 1) * 20)
+      .attr('width', 10)
+      .attr('height', 10)
+      .style('fill', (d) => color(d.name));
+
+    legend.append('text')
+      .attr('x', width - 110)
+      .attr('y', (d, i) => height/6 - (i + 1) * 20 + 10)
+      .text((d) => d.name)
+      .attr('font-size','14px');
+  }
+  // 新json格式
+  var tranCat = [{name:'昨日交易額',values:newViewData},{name:'前天交易額',values:oldViewData}];
+  showLegend(tranCat,ovTransaction);
+  var orderCat = [{name:'昨日訂單量',values:newViewData},{name:'前天訂單量',values:oldViewData}];
+  showLegend(orderCat,ovOrder);
+  var purchaseCat = [{name:'昨日平均客單價',values:newViewData},{name:'前天平均客單價',values:oldViewData}];
+  showLegend(purchaseCat,ovPurchase);
+  var memberCat = [{name:'昨日會員數',values:newViewData},{name:'前天會員數',values:oldViewData}];
+  showLegend(memberCat,ovMember);
+  // console.log(JSON.stringify(tranCat));
+
+  var registerColor = d3.scaleOrdinal(["#cdcdcd","#00c300","#3b5998"]);
+  var registerLegend =  ovRegister.selectAll(".register-legend")
+      .data([{name:'第一方註冊數'},{name:'LINE註冊數'},{name:'Facebook註冊數'}])
+      .enter()
+      .append('g')
+      .attr('class', "register-legend");
+
+  registerLegend.append('rect')
+    .attr('x', width - 130)
+    .attr('y', (d, i) => height/6 - (i + 1) * 20)
+    .attr('width', 10)
+    .attr('height', 10)
+    .style('fill', (d) => registerColor(d.name));
+
+  registerLegend.append('text')
+    .attr('x', width - 110)
+    .attr('y', (d, i) => height/6 - (i + 1) * 20 + 10)
+    .text((d) => d.name)
+    .attr('font-size','14px');
+
+  // 為了比對框而新增的json格式
+  var frameData = new Array(24).fill(0);
+  for(var i = 0; i < 24; i++){
+    var frame = {};
+
+    frame.balance_sum = (newViewData[i].o_sum + oldViewData[i].o_sum) / 2;
+    frame.new_sum = newViewData[i].o_sum;
+    frame.old_sum = oldViewData[i].o_sum;
+
+    frame.balance_id_q = (newViewData[i].o_id_q + oldViewData[i].o_id_q) / 2;
+    frame.new_id_q = newViewData[i].o_id_q;
+    frame.old_id_q = oldViewData[i].o_id_q;
+
+    frame.balance_ppo = (parseInt(newViewData[i].o_ppo) + parseInt(oldViewData[i].o_ppo)) / 2;
+    frame.new_ppo = newViewData[i].o_ppo;
+    frame.old_ppo = oldViewData[i].o_ppo;
+
+    frame.balance_member = (newViewData[i].o_member + oldViewData[i].o_member) / 2;
+    frame.new_member = newViewData[i].o_member;
+    frame.old_member = oldViewData[i].o_member;
+
+    frameData[i] = frame;
+  }
+  var tranFrame = [{name:'交易額文字框',values:frameData}];
+  var orderFrame = [{name:'訂單量文字框',values:frameData}];
+  var purchaseFrame = [{name:'客單價文字框',values:frameData}];
+  var memberFrame = [{name:'會員數文字框',values:frameData}];
+  // console.log(JSON.stringify(frameData));
+
+  //比對線
+  function showCompare(cat_data,ov_cat,cat_frame){
+    var compare =  ov_cat.append("g")
+      .attr("class", "compare-effects")
+      .attr('display', 'none');
+
+    compare.append("line") // this is the black vertical line to follow mouse
+      .attr("class", "compare-line")
+      .attr('y1' , 80)
+      .attr('y2', height-40);
+
+    var comparePerLine = compare.selectAll('.compare-per-line')
+      .data(cat_data)
+      .enter()
+      .append("g")
+      .attr("class", "compare-per-line");
+    
+    var comparePerFrame = compare.selectAll('.compare-per-frame')
+      .data(cat_frame)
+      .enter()
+      .append("g")
+      .attr("class", "compare-per-frame");
+
+    //比對的圈
+    comparePerLine.append("circle");
+
+    //比對的框
+    comparePerFrame.append("rect")
+                .attr("class", "show-frame");
+    comparePerFrame.append("text")
+                .attr("class", "frame-new-value");
+    comparePerFrame.append("text")
+                .attr("class", "frame-old-value")
+    comparePerFrame.append("rect")
+                .attr("class", "frame-new-cat");
+    comparePerFrame.append("rect")
+                .attr("class", "frame-old-cat")
+
+    // 第三種json格式，用以顯露對比點
+    var dayTrend = [];
+    for(var i = 0; i < 24; i++){
+      if(ov_cat == ovTransaction){
+        data = {
+          newData: tranCat[0].values[i].o_sum,
+          oldData: tranCat[1].values[i].o_sum,
+          viewTime: tranCat[0].values[i].o_date
+        }
+      }else if(ov_cat == ovOrder){
+        data = {
+          newData: orderCat[0].values[i].o_id_q,
+          oldData: orderCat[1].values[i].o_id_q,
+          viewTime: orderCat[0].values[i].o_date
+        }
+      }else if(ov_cat == ovPurchase){
+        data = {
+          newData: purchaseCat[0].values[i].o_ppo,
+          oldData: purchaseCat[1].values[i].o_ppo,
+          viewTime: purchaseCat[0].values[i].o_date
+        }
+      }else if(ov_cat == ovMember){
+        data = {
+          newData: memberCat[0].values[i].o_member,
+          oldData: memberCat[1].values[i].o_member,
+          viewTime: memberCat[0].values[i].o_date
+        }
+      }
+      dayTrend.push(data);
+    };
+    // console.log(JSON.stringify(dayTrend));
+    
+    ov_cat.append('rect')
+      .attr("width", width-120)
+      .attr("height", height-90)
+      .attr('x',70)
+      .attr('y',70)
+      .attr("class","hover-block")
+      .on("mouseover", mousemove)
+      .on("mouseout", mouseout)
+      .on("mousemove", mousemove);
+
+    var timeScales = dayTrend.map((t) => x(new Date(t.viewTime))+60);
+    // console.log(JSON.stringify(day_trend));
+
+    // function mouseover() {
+    //   compare.attr("display", null);
+    //   d3.selectAll('compare-per-line text').style("display", null);
+    //   d3.selectAll('compare-per-line circle').style("display", null);
+    // }
+    function mouseout() {
+      compare.attr("display", "none");
+      d3.selectAll('compare-per-line circle').style("display", "none");
+      d3.selectAll('compare-per-frame g').style("display", "none");
+    }
+    function mousemove(event) {
+      // mouseover
+      compare.attr("display", null);
+      d3.selectAll('compare-per-line circle').style("display", null);
+      d3.selectAll('compare-per-frame g').style("display", null);
+
+      // mousemove
+      var i = d3.bisect(timeScales, d3.pointer(event)[0], 1);
+      var di = dayTrend[i-1];
+      //控制比較線的出現
+      compare.attr("transform", "translate(" + (x(new Date(di.viewTime))+60) + ",0)");
+      
+      //控制框出現
+      d3.selectAll('.compare-per-frame')
+        .attr('transform', function(d) { 
+            if(ov_cat == ovTransaction){
+              return "translate(13,"+(yTransaction(d.values[i-1].balance_sum)+47)+")";
+            }else if(ov_cat == ovOrder){
+              return "translate(13,"+(yOrder(d.values[i-1].balance_id_q)+47)+")";
+            }else if(ov_cat == ovPurchase){
+              return "translate(13,"+(yPurchase(d.values[i-1].balance_ppo)+47)+")";
+            }else if(ov_cat == ovMember){
+              return "translate(13,"+(yMember(d.values[i-1].balance_member)+47)+")";
+            }
+          })
+      
+      d3.selectAll('.compare-per-frame .show-frame')
+        .attr('width', '130')
+        .attr('height', '65')
+        .style('fill', "#555");
+
+      //控制字出現
+      d3.selectAll('.compare-per-frame .frame-new-value')
+        .attr('x', '45')
+        .attr('y', '25')
+        .text(function(d) { 
+          if(ov_cat == ovTransaction){
+            return d.values[i-1].new_sum;
+          }else if(ov_cat == ovOrder){
+            return d.values[i-1].new_id_q;
+          }else if(ov_cat == ovPurchase){
+            return d.values[i-1].new_ppo;
+          }else if(ov_cat == ovMember){
+            return d.values[i-1].new_member;
+          }
+        })
+        .style('fill', "#FCAD62")
+        .attr('font-size', '16px');
+
+      d3.selectAll('.compare-per-frame .frame-old-value')
+        .attr('x', '45')
+        .attr('y', '50')
+        .text(function(d) { 
+          if(ov_cat == ovTransaction){
+            return d.values[i-1].old_sum;
+          }else if(ov_cat == ovOrder){
+            return d.values[i-1].old_id_q;
+          }else if(ov_cat == ovPurchase){
+            return d.values[i-1].old_ppo;
+          }else if(ov_cat == ovMember){
+            return d.values[i-1].old_member;
+          }
+        })
+        .style('fill', "#cdcdcd")
+        .attr('font-size', '16px');
+
+      //控種類框出現
+      d3.selectAll('.compare-per-frame .frame-new-cat')
+        .attr('x', '20')
+        .attr('y', '13')
+        .attr('width', '12')
+        .attr('height', '12')
+        .style('fill', "#FCAD62");
+
+      d3.selectAll('.compare-per-frame .frame-old-cat')
+        .attr('x', '20')
+        .attr('y', '38')
+        .attr('width', '12')
+        .attr('height', '12')
+        .style('fill', "#cdcdcd");
+      
+
+      //控制圓圈圈出現
+      d3.selectAll('.compare-per-line circle')
+        .attr('cx', '0')
+        .attr('cy', function(d) { 
+          if(ov_cat == ovTransaction){
+            return yTransaction(d.values[i-1].o_sum)+81;
+          }else if(ov_cat == ovOrder){
+            return yOrder(d.values[i-1].o_id_q)+81;
+          }else if(ov_cat == ovPurchase){
+            return yPurchase(d.values[i-1].o_ppo)+81;
+          }else if(ov_cat == ovMember){
+            return yMember(d.values[i-1].o_member)+81;
+          }
+        })
+        .text(function(d) { return d.values[i-1].o_sum; })
+        .style('fill', function(d) { return color(d.name); })
+    }
+  }
+  showCompare(tranCat,ovTransaction,tranFrame);
+  showCompare(orderCat,ovOrder,orderFrame);
+  showCompare(purchaseCat,ovPurchase,purchaseFrame);
+  showCompare(memberCat,ovMember,memberFrame);
+    
+
+  </script>
+  <style>
+    .axis path,.axis line {
+      stroke: #F2E8DE;
+    }
+    text{
+      fill: #999;
+    }
+    line {
+      stroke-width: 1.5px;
+    }
+    path{
+      stroke-width: 2px;
+    }
+    .old-path{
+      stroke-dasharray: 5,5;
+    }
+    .compare-line {
+      stroke: #777;
+      stroke-width: 2px;
+    }
+    circle{
+      stroke-width: 1px;
+      r: 5;
+    }
+    .hover-block{
+      fill: transparent;
+    }
+  </style>
+  
+{% endblock %}

@@ -1,0 +1,1112 @@
+{% extends "base.html" %}
+
+{% block dashboard_content %}
+  <div>
+    <h1>RFM分析&nbsp;</h1>
+    <a class="explain" href="https://www.nextlytics.com/blog/machine-learning-in-customer-segmentation-with-rfm-analysis">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-exclamation-circle" viewBox="0 0 16 16">
+        <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+        <path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 4.995z"/>
+      </svg>
+    </a>
+  </div>
+  <br>
+  <form action='/rfm' onsubmit="return validateDate()">
+    <div id="date-picker">
+      <p style='display:inline-block;margin-right:10px;font-weight: 500;font-size: 16px;'>From</p><p style='display:inline-block;margin-right:15px;'><input name="startdate" id="startdate" type="text" class="form-control" onchange='keepValue(this);'></p>
+      <p style='display:inline-block;margin-right:10px;font-weight: 500;font-size: 16px;'>To</p><p style='display:inline-block;'><input name="enddate" id="enddate" type="text" class="form-control" onchange='keepValue(this);'></p>
+      <input type="hidden" id="vs_start" name="vs_startdate" value=""/>
+      <input type="hidden" id="vs_end" name="vs_enddate" value=""/>
+    </div>
+    <button class="date-select-btn" type="submit">Go</button>
+  </form>
+  <div id="date-alert" class="alert alert-danger" role="alert" style="margin-top:10px;display:none;">
+    <button type="button" onclick="closeDateAlert()" style="border:none;background-color:transparent;font-size:20px;outline:none;">&times;</button>
+    <strong>日期格式錯誤！</strong> 請重新設置日期
+  </div>
+  
+  <div class="block" id="rfm-chart">
+    <div id="chart-explain" class="explain">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-exclamation-circle" viewBox="0 0 16 16">
+        <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+        <path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 4.995z"/>
+      </svg>
+    </div>
+    <div style='position:relative;width:0;height:0;display:inline-block;'>
+      <div id="chart-tip" class="tip" style="width: 370px;">
+        R1: 流失客戶&nbsp;&nbsp;R2: 睡眠客戶&nbsp;&nbsp;R3: 沈默客戶&nbsp;&nbsp;R4: 活躍客戶&nbsp;&nbsp;<br>
+        F1: 新客戶&nbsp;&nbsp;F2: 老客戶&nbsp;&nbsp;F3: 成熟客戶&nbsp;&nbsp;F4: 忠實客戶&nbsp;&nbsp;<br>
+        M1: 低貢獻客戶&nbsp;&nbsp;M2: 中客戶&nbsp;&nbsp;M3: 中高貢獻客戶&nbsp;&nbsp;M4: 高貢獻客戶&nbsp;&nbsp;<br>
+        <button id="chart-tip-btn" class="tip-btn" type="button">Close</button>
+      </div>
+    </div>
+    <table cellpadding="5" style="display:inline-block;">
+      <thead>
+        <tr>
+          <th id="c-all">R</th>
+          <th>M</th>
+          <th>F1</th>
+          <th>F2</th>
+          <th>F3</th>
+          <th>F4</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td rowspan=4 class="R">1</td>
+          <td class="M">1</td>
+          <td rowspan=2 colspan=2 class="c c-lost">Lost Customers</td>
+          <td rowspan=6 colspan=2 class="c c-risk"></td>
+        </tr>
+        <tr>
+          <td class="M">2</td>
+        </tr>
+        <tr>
+          <td class="M">3</td>
+          <td rowspan=2 colspan=2 class="c c-inactive">Inactive Customers</td>
+        </tr>
+        <tr>
+          <td class="M">4</td>
+        </tr>
+        <tr>
+          <td rowspan=4 class="R">2</td>
+          <td class="M">1</td>
+          <td rowspan=2 colspan=2 class="c c-potential">Potential Lost Customers</td>
+        </tr>
+        <tr>
+          <td class="M">2</td>
+        </tr>
+        <tr>
+          <td class="M">3</td>
+          <td rowspan=2 colspan=2 class="c c-risk">Customers at Risk</td>
+          <td rowspan=2 colspan=2 id="inter-risk" class="c c-risk"></td>
+        </tr>
+        <tr>
+          <td class="M">4</td>
+        </tr>
+        <tr>
+          <td rowspan=4 class="R">3</td>
+          <td class="M">1</td>
+          <td colspan=1 rowspan=2 id="inter-unsteady" class="c c-unsteady"></td>
+          <td colspan=3 rowspan=2 class="c c-unsteady">Unsteady customers</td>
+        </tr>
+        <tr>
+          <td class="M">2</td>
+        </tr>
+        <tr>
+          <td class="M">3</td>
+          <td colspan=1 rowspan=6 class="c c-unsteady"></td>
+          <td colspan=3 rowspan=2 class="c c-emerging">Emerging Customers</td>
+        </tr>
+        <tr>
+          <td class="M">4</td>
+        </tr>
+        <tr>
+          <td rowspan=4 class="R">4</td>
+          <td class="M">1</td>
+          <td colspan=1 rowspan=2 id="inter-active" class="c c-active"></td>
+          <td colspan=2 rowspan=2 class="c c-active" style="text-align:left;">Active Customers</td>
+        </tr>
+        <tr>
+          <td class="M">2</td>
+        </tr>
+        <tr>
+          <td class="M">3</td>
+          <td rowspan=2 class="c c-active"></td>
+          <td colspan=2 rowspan=2 class="c c-top">Top Customers</td>
+        </tr>
+        <tr>
+          <td class="M">4</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="detail" id="block-detail">
+    <div style="text-align: center;">
+      <h1>RFM明細表</h1>
+      <div id="detail-explain" class="explain">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-exclamation-circle" viewBox="0 0 16 16">
+          <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+          <path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 4.995z"/>
+        </svg>
+      </div>
+      <div style='position:relative;width:0;height:0;display:inline-block;'>
+        <div id="detail-tip" class="tip">
+          「消費金額」為公司的平均訂單金額。<br>
+          「最近一次消費」為公司最後一次消費的日期到今天的間隔天數。<br>
+          「消費頻率」為消費的次數。<br>
+          <button id="detail-tip-btn" class="tip-btn" type="button">Close</button>
+        </div>
+      </div>
+    </div>
+    <div class="rfm-detail"><table></table></div>
+  </div>
+
+  <div>
+    <div class="block" id="block-rfm">
+      <svg></svg>
+    </div>
+    <div style="display:inline-block;vertical-align: top;">
+      <div class="block" id="block-rfm-target">
+        <p>依據RFM分組的指標</p>
+        <div class="target-radio">
+          <input type="radio" id="target-count" class="target" name="target" value=0 checked>
+          <label for="count">顧客數</label>
+        </div>
+        <div class="target-radio">
+          <input type="radio" id="target-cash" class="target" name="target" value=1>
+          <label for="cash">平均消費金額</label>
+        </div>
+        <div class="target-radio">
+          <input type="radio" id="target-total" class="target" name="target" value=2>
+          <label for="total">總消費</label>
+        </div>
+      </div>
+      <div class="block" id="block-rfm-vs">
+        <label for="versus">比較時間</label>
+        <form action='/rfm' style="margin-top:20px;" onsubmit="return validate()">
+          <p style='display:inline-block;width:40px;'>From</p><p style='display:inline-block;'><input name="vs_startdate" id="min" type="text" class="form-control"></p>
+          <p style='display:inline-block;width:40px;'>To</p><p style='display:inline-block;'><input name="vs_enddate" id="max" type="text" class="form-control"></p>
+          <input type="hidden" id="start" name="startdate" value=""/>
+          <input type="hidden" id="end" name="enddate" value=""/>
+          <button type="submit"style="padding:3px 8px;background-color:#66615b;color:white;border-radius:6px;outline:none;font-size:14px;border: none;float:right;">比較</button>
+        </form>
+      </div>
+      <div id="vs-date-alert" class="alert alert-danger" role="alert" style="margin-top:10px;display:none;">
+        <button type="button" onclick="closeAlert()" style="border:none;background-color:transparent;font-size:20px;outline:none;">&times;</button>
+        <strong>日期格式錯誤！</strong> 請重新設置日期
+      </div>
+    </div>
+  </div>
+
+  <div class="block" id="block-quantile">
+    <div class="Q"><table></table></div>
+  </div>
+
+  <style>
+    #date-picker,.date-select-btn{
+      display: inline-block;
+    }
+    #date-picker{
+      margin-right:15px;
+      border-radius: 6px;
+      padding: 8px 12px;
+      box-shadow: 0 6px 10px -4px rgba(0,0,0,.15);
+      margin-bottom: 20px;
+      background-color:#fff
+    }
+    p{
+      margin-bottom: 0;
+    }
+    #block-rfm-vs p{
+      margin-bottom: 10px;
+    }
+    .date-select-btn{
+      border-radius: 6px;
+      padding: 11px 12px;
+      font-size: 16px;
+      box-shadow: 0 6px 10px -4px rgba(0,0,0,.15);
+      margin-bottom: 20px;
+      background-color:#fff;
+      border: solid 2px #aaa;
+      font-weight: 500;
+    }
+    .date-select-btn:hover{
+      background-color:#aaa;
+      color: #fff
+    }
+    .date-select-btn:active, .date-select-btn:focus{
+      outline-color: #aaa;
+    }
+    .explain{
+      display: inline-block;
+      cursor: pointer;
+      vertical-align: top;
+    }
+    .tip{
+      display: none;
+      padding: 12px;
+      border-radius: 6px;
+      background-color: #555;
+      color: #fff;
+      position: absolute;
+      width: 250px;
+      top: -30px;
+      left: 5px;
+      text-align: left;
+    }
+    .tip-btn{
+      background-color: #fff;
+      border: none;
+      border-radius: 6px;
+      color: #555;
+      margin: 10px 0 4px 0;
+      float: right;
+    }
+    .tip-btn:focus{
+      outline: none;
+    }
+    h1{
+      display: inline-block;
+    }
+    #rfm-chart{
+      width: 1050px;
+    }
+    #block-rfm{
+      width: 800px;
+      height: 650px;
+      display: inline-block;
+    }
+    #block-rfm svg{
+      width: 800px;
+      height: 600px;
+    }
+    #block-rfm-target{
+      width: 230px;
+      height: 200px;
+    }
+    #block-rfm-vs{
+      width: 230px;
+      height: 210px;
+    }
+    #block-rfm-target p, #block-rfm-vs label{
+      font-size: 20px;
+      color: #333;
+      font-weight: 500;
+    }
+    #block-rfm-target .target-radio label{
+      font-size: 18px;
+      font-weight: normal;
+    }
+    .block,.detail{
+      border-radius: 12px;
+      box-shadow: 0 6px 10px -4px rgba(0,0,0,.15);
+      background-color: #fff;
+      color: #252422;
+      padding: 20px;
+      margin-bottom: 30px;
+      margin-right: 30px;
+    }
+    table,th,td{
+      border: solid 3px #333;
+      border-collapse: collapse;
+      font-size: 20px;
+      text-align: center;
+      width: 1000px;
+    }
+    th{
+      background-color: #66615b;
+      color: #fff;
+    }
+    th:nth-child(1),th:nth-child(2){
+      width: 10%;
+    }
+    th:nth-child(3),th:nth-child(4),th:nth-child(5),th:nth-child(6){
+      width: 20%;
+    }
+    .R{
+      vertical-align: text-top;
+    }
+    .R,.M{
+      color: #fff;
+      background-color: #66615b;
+    }
+    #inter-risk{
+      border-top: hidden;
+      border-left: hidden;
+    }
+    #inter-unsteady{
+      border-bottom: hidden;
+      border-right: hidden;
+    }
+    #inter-active{
+      border-right: hidden;
+      border-bottom: hidden;
+    }
+    .c-lost{
+      background-color: #52cacd;
+    }
+    .c-inactive{
+      background-color: #518dda;
+    }
+    .c-potential{
+      background-color: #6bd097;
+    }
+    .c-risk{
+      background-color: #fcc658;
+    }
+    .c-unsteady{
+      background-color: #ee8256;
+    }
+    .c-emerging{
+      background-color: #6f42c1;
+    }
+    .c-active{
+      background-color: #dd4c38;
+    }
+    .c-top{
+      background-color: #dc3545;
+    }
+    .c,#c-all{
+      cursor: pointer;
+    }
+    #block-detail{
+      width: 1050px;
+      height: 580px;
+      border-collapse: collapse;
+    }
+    #block-quantile{
+      width: 1050px;
+      height: 240px;
+      border-collapse: collapse;
+    }
+    #block-detail h1{
+      color: #555;
+      margin-top: 0px;
+      font-size: 26px;
+      font-weight: 500;
+    }
+    .rfm-detail{
+      height: 497px;
+      overflow: scroll;
+    }
+    #block-detail th, #block-detail td,#block-quantile th, #block-quantile td {
+      text-align: left;
+      padding: 8px;
+    }
+    #block-detail th{
+      width: 20%;
+    }
+    #block-quantile th{
+      width: 16.66%;
+    }
+    #block-detail tr:nth-child(even) {
+      background-color: #f2f2f2;
+    }
+    
+    #block-detail th{
+      font-weight: bold;
+    }
+    .tick text{
+      font-size: 16px;
+    }
+  </style>
+  <link rel="stylesheet" href="//code.jquery.com/ui/1.12.0/themes/base/jquery-ui.css">
+  <script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.5.1.js"></script>
+  <script src="https://code.jquery.com/ui/1.12.0/jquery-ui.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/6.3.1/d3.min.js" integrity="sha512-9H86d5lhAwgf2/u29K4N5G6pZThNOojI8kMT4nT4NHvVR02cM85M06KJRQXkI0XgQWBpzQyIyr8LVomyu1AQdw==" crossorigin="anonymous"></script>
+  <script>
+    //時間傳回.py再回傳至前端
+    window.onload=function(){
+      // 若url有參數就先套用
+      keepValue()
+    };
+    //日期不會在按完按鈕後改變
+    function keepValue() {
+      var startDate = new Date('{{startDate}}');
+      var endDate = new Date('{{endDate}}');
+
+      if(new URL(window.location).searchParams.get("startdate")){
+        $('#startdate').val(new URL(window.location).searchParams.get("startdate"));
+      } else{
+        $('#startdate').val(startDate.getFullYear()+'-'+(startDate.getMonth()+1)+'-'+startDate.getDate());
+      }
+
+      if(new URL(window.location).searchParams.get("enddate")){
+        $('#enddate').val(new URL(window.location).searchParams.get("enddate"));
+      } else{
+        $('#enddate').val(endDate.getFullYear()+'-'+(endDate.getMonth()+1)+'-'+endDate.getDate());
+      }
+
+      if(new URL(window.location).searchParams.get("vs_enddate")){
+        $('#max').val(new URL(window.location).searchParams.get("vs_enddate"));
+      }
+
+      if(new URL(window.location).searchParams.get("vs_startdate")){
+        $('#min').val(new URL(window.location).searchParams.get("vs_startdate"));
+      }
+    }
+
+    //日期選擇器
+    $(document).ready(function(){
+      // 若url有參數就先套用
+      keepValue()
+
+      $("#startdate").datepicker({ onSelect: function () { 
+
+      }, changeMonth: true, changeYear: true, dateFormat : "yy-mm-dd" });
+
+      $("#enddate").datepicker({ onSelect: function () { 
+
+      }, changeMonth: true, changeYear: true, dateFormat : "yy-mm-dd" });
+
+      $("#min").datepicker({ onSelect: function () { 
+
+       }, changeMonth: true, changeYear: true, dateFormat : "yy-mm-dd" });
+
+      $("#max").datepicker({ onSelect: function () { 
+
+       }, changeMonth: true, changeYear: true, dateFormat : "yy-mm-dd" });
+      
+    });
+  
+    //確保日期沒有輸入錯誤
+    function validateDate() {
+      var start = $('#startdate').val();
+      var end = $('#enddate').val();
+      if (start > end){ 
+        $("#date-alert").show();
+        return false
+      } else{
+        $("#date-alert").hide();
+      }
+
+      //將hidden的值也傳出去
+      var min = $('#min').val();
+      if(min){
+        var max = $('#max').val();
+        if (min > max){ 
+          $("#vs-date-alert").show();
+          return false
+        } else{
+          $('#vs_start').val(min);
+          $('#vs_end').val(max);
+        }
+      }else{
+        $('#vs_start').attr('name','');
+        $('#vs_end').attr('name','');
+      }
+    }
+    
+    function validate() {
+      var min = $('#min').val();
+      var max = $('#max').val();
+      if (min > max){ 
+        $("#vs-date-alert").show();
+        return false
+      } else{
+        $("#vs-date-alert").hide();
+      }
+
+      if ($('#min').val()==""){
+        $('#min').attr('name','')
+      }
+
+      if ($('#max').val()==""){
+        $('#max').attr('name','')
+      }
+
+      //將hidden的值也傳出去
+      var start = $('#startdate').val();
+      var end = $('#enddate').val();
+      if (start > end){ 
+        $("#date-alert").show();
+        return false
+      } else{
+        $('#start').val(start);
+        $('#end').val(end);
+      }
+    }
+
+    function closeDateAlert(){
+      $("#date-alert").hide();
+    }
+
+    function closeAlert(){
+      $("#vs-date-alert").hide();
+    }
+
+    // tip
+    var detailExplain = document.getElementById("detail-explain");
+    var detailTip = document.getElementById("detail-tip");
+    var tipBtn = document.getElementById("detail-tip-btn");
+    detailExplain.addEventListener('click', function(){
+      if(detailTip.style.display == "inline-block"){
+        detailTip.style.display = "none";
+      }else{
+        detailTip.style.display = "inline-block";
+      }
+    })
+    tipBtn.addEventListener('click', function(){
+      detailTip.style.display = "none";
+    })
+
+    var chartExplain = document.getElementById("chart-explain");
+    var chartTip = document.getElementById("chart-tip");
+    var tipBtn = document.getElementById("chart-tip-btn");
+    chartExplain.addEventListener('click', function(){
+      if(chartTip.style.display == "inline-block"){
+        chartTip.style.display = "none";
+      }else{
+        chartTip.style.display = "inline-block";
+      }
+    })
+    tipBtn.addEventListener('click', function(){
+      chartTip.style.display = "none";
+    })
+  </script>
+  <script>
+    var orders = JSON.parse('{{ order_data | safe}}');
+    var vsOrders = JSON.parse('{{ vs_order_data | safe}}');
+    // console.log(vsOrders);
+
+    var table = d3.select(".detail table");
+    var tableQ = d3.select("#block-quantile table");
+    var block = d3.selectAll(".block svg");
+
+    var height = 600;
+    var width = 700;
+
+    // 長條圖x軸
+    var groups=['Lost','Inactive','Potential','Risk','Unsteady','Emerging','Active','Top'];
+    var x= d3.scaleBand()
+        .domain(groups)
+        .range([0, width-100]);
+    var xAxis = d3.axisBottom(x);
+
+
+    var cLost = document.getElementsByClassName("c-lost");
+    var cInactive = document.getElementsByClassName("c-inactive");
+    var cPotential = document.getElementsByClassName("c-potential");
+    var cRisk = document.getElementsByClassName("c-risk");
+    var cUnsteady = document.getElementsByClassName("c-unsteady");
+    var cEmerging = document.getElementsByClassName("c-emerging");
+    var cActive = document.getElementsByClassName("c-active");
+    var cTop = document.getElementsByClassName("c-top");
+    var cAll = document.getElementById("c-all");
+    var c = document.getElementsByClassName("c");
+
+    cLost[0].addEventListener('click', function(){
+      for(var i = 0; i<c.length; i++){
+        c[i].style.opacity = "0.3";
+      }
+      cLost[0].style.opacity = "1";
+      rfmAnalysis("lost");
+    })
+    cInactive[0].addEventListener('click', function(){
+      for(var i = 0; i<c.length; i++){
+        c[i].style.opacity = "0.3";
+      }
+      cInactive[0].style.opacity = "1";
+      rfmAnalysis("inactive");
+    })
+    cPotential[0].addEventListener('click', function(){
+      for(var i = 0; i<c.length; i++){
+        c[i].style.opacity = "0.3";
+      }
+      cPotential[0].style.opacity = "1";
+      rfmAnalysis("potential");
+    })
+    for(var j=0; j < cRisk.length; j++){
+      cRisk[j].addEventListener('click', function(){
+        for(var i = 0; i<c.length; i++){
+          c[i].style.opacity = "0.3";
+        }
+        cRisk[0].style.opacity = "1";
+        cRisk[1].style.opacity = "1";
+        cRisk[2].style.opacity = "1";
+        rfmAnalysis("risk");
+      })
+    }
+    for(var j=0; j < cUnsteady.length; j++){
+      cUnsteady[j].addEventListener('click', function(){
+        for(var i = 0; i<c.length; i++){
+          c[i].style.opacity = "0.3";
+        }
+        cUnsteady[0].style.opacity = "1";
+        cUnsteady[1].style.opacity = "1";
+        cUnsteady[2].style.opacity = "1";
+        rfmAnalysis("unsteady");
+      })
+    }
+    cEmerging[0].addEventListener('click', function(){
+      for(var i = 0; i<c.length; i++){
+        c[i].style.opacity = "0.3";
+      }
+      cEmerging[0].style.opacity = "1";
+      rfmAnalysis("emerging");
+    })
+    for(var j=0; j < cActive.length; j++){
+      cActive[j].addEventListener('click', function(){
+        for(var i = 0; i<c.length; i++){
+          c[i].style.opacity = "0.3";
+        }
+        cActive[0].style.opacity = "1";
+        cActive[1].style.opacity = "1";
+        cActive[2].style.opacity = "1";
+        rfmAnalysis("active");
+      })
+    }
+    cTop[0].addEventListener('click', function(){
+      for(var i = 0; i<c.length; i++){
+        c[i].style.opacity = "0.3";
+      }
+      cTop[0].style.opacity = "1";
+      rfmAnalysis("top");
+    })
+    cAll.addEventListener('click', function(){
+      for(var i = 0; i<c.length; i++){
+        c[i].style.opacity = "1";
+      }
+      rfmAnalysis("all");
+    })
+
+    var scaleColor = d3.scaleOrdinal(['#52cacd','#518dda','#6bd097','#fcc658','#ee8256','#6f42c1','#dd4c38','#dc3545']);
+
+    // quantile block
+    theadQ = tableQ.append("thead"),
+    tbodyQ = tableQ.append("tbody");
+    // 表頭
+    theadQ.append("tr")
+          .selectAll("th")
+          .data(["Name","MIN","Q1","Q2","Q3","MAX"])
+          .enter()
+          .append("th")
+          .text((column)=>column)
+          .style("font-size","22px")
+          .style("font-weight", "400")
+          .style("text-align", "left");
+
+    // detail block
+    thead = table.append("thead"),
+    tbody = table.append("tbody");
+    // 表頭
+    thead.append("tr")
+          .selectAll("th")
+          .data(["顧客名","RFM群組","消費總金額","最近一次消費(天)","消費頻率"])
+          .enter()
+          .append("th")
+          .text((column)=>column)
+          .style("font-size","22px")
+          .style("font-weight", "400")
+          .style("text-align", "left");
+
+    
+    var rfmGroup = [];
+    var rGroup = [];
+    var fGroup = [];
+    var mGroup = [];
+    var parseDate = d3.timeFormat("%Y-%m-%d");
+    orders.forEach((order) => {
+      recency = parseInt(Math.abs(new Date(parseDate(new Date()))-new Date(parseDate(new Date(order.purchase_date)))))/ 1000 / 60 / 60 / 24;
+      rGroup.push(recency);
+      fGroup.push(order.OIDQ);
+      mGroup.push(order.total);
+      
+      var rfm = new Object();
+      rfm.user = order.user;
+      rfm.mid = order.MID;
+      rfm.recency = recency;
+      rfm.frequency = order.OIDQ;
+      rfm.monetary = order.total;
+      rfm.r = 0;
+      rfm.f = 0;
+      rfm.m = 0;
+      rfm.group= "";
+      rfmGroup.push(rfm);
+    })
+
+  
+    if(vsOrders.length!=0){
+      var vrfmGroup = [];
+      var vrGroup = [];
+      var vfGroup = [];
+      var vmGroup = [];
+      vsOrders.forEach((order) => {
+        recency = parseInt(Math.abs(new Date(parseDate(new Date()))-new Date(parseDate(new Date(order.purchase_date)))))/ 1000 / 60 / 60 / 24;
+        vrGroup.push(recency);
+        vfGroup.push(order.OIDQ);
+        vmGroup.push(order.total);
+        
+        var vrfm = new Object();
+        vrfm.recency = recency;
+        vrfm.frequency = order.OIDQ;
+        vrfm.monetary = order.total;
+        vrfm.r = 0;
+        vrfm.f = 0;
+        vrfm.m = 0;
+        vrfm.group= "";
+        vrfmGroup.push(vrfm);
+      })
+
+      var vrA = d3.quantile(vrGroup, 0);
+      var vrB = d3.quantile(vrGroup, 0.25);
+      var vrC = d3.quantile(vrGroup, 0.5);
+      var vrD = d3.quantile(vrGroup, 0.75);
+      var vrE = d3.quantile(vrGroup, 1);
+      
+      var vfA = d3.quantile(vfGroup, 0);
+      var vfB = d3.quantile(vfGroup, 0.25);
+      var vfC = d3.quantile(vfGroup, 0.5);
+      var vfD = d3.quantile(vfGroup, 0.75);
+      var vfE = d3.quantile(vfGroup, 1);
+      
+      var vmA = d3.quantile(vmGroup, 0);
+      var vmB = d3.quantile(vmGroup, 0.25);
+      var vmC = d3.quantile(vmGroup, 0.5);
+      var vmD = d3.quantile(vmGroup, 0.75);
+      var vmE = d3.quantile(vmGroup, 1);
+
+      vrfmGroup.forEach((rfm) => {
+        r = rfm.recency;
+        f = rfm.frequency;
+        m = rfm.monetary;
+        if(r>=vrA && r<=vrB){
+          rfm.r = 4;
+        }else if(r>=vrB && r<=vrC){
+          rfm.r = 3;
+        }else if(r>=vrC && r<=vrD){
+          rfm.r = 2;
+        }else if(r>=vrD && r<=vrE){
+          rfm.r = 1;
+        }
+        if(f>=vfA && f<=vfB){
+          rfm.f = 1;
+        }else if(f>=vfB && f<=vfC){
+          rfm.f = 2;
+        }else if(f>=vfC && f<=vfD){
+          rfm.f = 3;
+        }else if(f>=vfD && f<=vfE){
+          rfm.f = 4;
+        }
+        if(m>=vmA && m<=vmB){
+          rfm.m = 1;
+        }else if(m>=vmB && m<=vmC){
+          rfm.m = 2;
+        }else if(m>=vmC && m<=vmD){
+          rfm.m = 3;
+        }else if(m>=vmD && m<=vmE){
+          rfm.m = 4;
+        }
+        
+        //分類客群
+        if(rfm.r==1 && rfm.m<=2 && rfm.f<=2){
+          rfm.group = "lost";
+        }else if(rfm.r==1 && rfm.m>=3 && rfm.f<=2){
+          rfm.group = "inactive";
+        }else if(rfm.r==2 && rfm.m<=2 && rfm.f<=2){
+          rfm.group = "potential";
+        }else if(rfm.r<=2){
+          rfm.group = "risk";
+        }else if(rfm.r==4 && rfm.m>=3 && rfm.f>=3){
+          rfm.group = "top";
+        }else if(rfm.r==3 && rfm.m>=3 && rfm.f>=2){
+          rfm.group = "emerging";
+        }else if(rfm.r==4 && rfm.f>=2){
+          rfm.group = "active";
+        }else if(rfm.r>=3){
+          rfm.group = "unsteady";
+        }
+      })
+    }
+    
+    var rA = d3.quantile(rGroup, 0);
+    var rB = d3.quantile(rGroup, 0.25);
+    var rC = d3.quantile(rGroup, 0.5);
+    var rD = d3.quantile(rGroup, 0.75);
+    var rE = d3.quantile(rGroup, 1);
+    
+    var fA = d3.quantile(fGroup, 0);
+    var fB = d3.quantile(fGroup, 0.25);
+    var fC = d3.quantile(fGroup, 0.5);
+    var fD = d3.quantile(fGroup, 0.75);
+    var fE = d3.quantile(fGroup, 1);
+    
+    var mA = d3.quantile(mGroup, 0);
+    var mB = d3.quantile(mGroup, 0.25);
+    var mC = d3.quantile(mGroup, 0.5);
+    var mD = d3.quantile(mGroup, 0.75);
+    var mE = d3.quantile(mGroup, 1);
+
+    // console.log(fA,fB,fC,fD,fE);
+    // console.log(rA,rB,rC,rD,rE);
+    // console.log(mA,mB,mC,mD,mE);
+    qGroup = [{name:'Recency',min:rA,Q1:rB,Q2:rC,Q3:rD,max:rE},{name:'Frequency',min:fA,Q1:fB,Q2:fC,Q3:fD,max:fE},{name:'Monetary',min:mA,Q1:mB,Q2:mC,Q3:mD,max:mE}];
+      
+    //已知四分衛，開始歸類rfm等級
+    rfmGroup.forEach((rfm) => {
+      r = rfm.recency;
+      f = rfm.frequency;
+      m = rfm.monetary;
+      if(r>=rA && r<=rB){
+        rfm.r = 4;
+      }else if(r>=rB && r<=rC){
+        rfm.r = 3;
+      }else if(r>=rC && r<=rD){
+        rfm.r = 2;
+      }else if(r>=rD && r<=rE){
+        rfm.r = 1;
+      }
+      if(f>=fA && f<=fB){
+        rfm.f = 1;
+      }else if(f>=fB && f<=fC){
+        rfm.f = 2;
+      }else if(f>=fC && f<=fD){
+        rfm.f = 3;
+      }else if(f>=fD && f<=fE){
+        rfm.f = 4;
+      }
+      if(m>=mA && m<=mB){
+        rfm.m = 1;
+      }else if(m>=mB && m<=mC){
+        rfm.m = 2;
+      }else if(m>=mC && m<=mD){
+        rfm.m = 3;
+      }else if(m>=mD && m<=mE){
+        rfm.m = 4;
+      }
+      
+      //分類客群
+      if(rfm.r==1 && rfm.m<=2 && rfm.f<=2){
+        rfm.group = "lost";
+      }else if(rfm.r==1 && rfm.m>=3 && rfm.f<=2){
+        rfm.group = "inactive";
+      }else if(rfm.r==2 && rfm.m<=2 && rfm.f<=2){
+        rfm.group = "potential";
+      }else if(rfm.r<=2){
+        rfm.group = "risk";
+      }else if(rfm.r==4 && rfm.m>=3 && rfm.f>=3){
+        rfm.group = "top";
+      }else if(rfm.r==3 && rfm.m>=3 && rfm.f>=2){
+        rfm.group = "emerging";
+      }else if(rfm.r==4 && rfm.f>=2){
+        rfm.group = "active";
+      }else if(rfm.r>=3){
+        rfm.group = "unsteady";
+      }
+    })
+    // console.log(rfmGroup);
+
+    // quantile block
+    //資料行
+    var rowsQ = tbodyQ.selectAll("tr")
+          .data(qGroup)
+          .enter()
+          .append("tr");
+
+    //資料內容
+    var cellsQ = rowsQ.selectAll("td")
+          .data(function(row) {
+              return ['name','min','Q1','Q2','Q3','max'].map(function(column) {
+                  return {column: column, value: row[column]};
+              });
+          })
+          .enter()
+          .append("td")
+          .html((d)=>d.value)
+          .style("font-size","20px");
+
+    // 監聽指標radio
+    var radios = document.getElementsByClassName("target");
+    for(var i =0; i<radios.length; i++){
+      radios[i].addEventListener('change', function() {
+        if(this.value==0){
+          showTargetBar(8000,"顧客數","顧客數")
+        }else if(this.value==1){
+          showTargetBar(9000,"平均消費金額","金額")
+        }else{
+          showTargetBar(30000000,"總消費","金額")
+        }
+      });
+    }
+
+    //長條圖
+    function showTargetBar(yRange,targetName,xName){
+      block.selectAll("g").remove();
+      block.selectAll(".y axis").remove();
+      block.selectAll("text").remove();
+      //計算指標
+      var rfmCounter = [{name:"lost",count:0,cash:0},{name:"inactive",count:0,cash:0},{name:"potential",count:0,cash:0},{name:"risk",count:0,cash:0},{name:"unsteady",count:0,cash:0},{name:"emerging",count:0,cash:0},{name:"active",count:0,cash:0},{name:"top",count:0,cash:0}];
+      if(targetName=="顧客數"){
+        rfmGroup.forEach((rfm) => {
+          for(var i =0; i<8; i++){
+            if(rfm.group == rfmCounter[i].name){
+              rfmCounter[i].count++;
+              break;
+            }
+          }
+        })
+      }else if(targetName=="平均消費金額"){
+        rfmGroup.forEach((rfm) => {
+          for(var i =0; i<8; i++){
+            if(rfm.group == rfmCounter[i].name){
+              rfmCounter[i].count++;
+              rfmCounter[i].cash+=rfm.monetary;
+              break;
+            }
+          }
+        })
+        rfmCounter.forEach((rc) =>{
+          if(rc.count != 0){
+            rc.count = (rc.cash / rc.count).toFixed(2);
+          }
+        })
+      }else{
+        rfmGroup.forEach((rfm) => {
+          for(var i =0; i<8; i++){
+            if(rfm.group == rfmCounter[i].name){
+              rfmCounter[i].count+=rfm.monetary;
+              break;
+            }
+          }
+        })
+      }
+      // console.log(rfmCounter);
+
+      // x軸位置
+      block.append("g")
+        .attr("class", "x axis")
+        .attr("transform", "translate(120,"+(height-70)+")")
+        .call(xAxis)
+        .selectAll("text")
+        .style("text-anchor", "end")
+        .attr("transform", "rotate(-45)");
+
+      var y = d3.scaleLinear()
+            .domain([0,yRange])
+            .range([height-130,0]);
+
+      var yAxis = d3.axisLeft(y);
+      // y軸位置
+      block.append("g")
+        .attr("class", "y axis")
+        .attr("transform", "translate(120, 60)")
+        .call(yAxis);
+
+      //title
+      block.append("text")
+        .attr('x', width/2+50)
+        .attr('y', 40)
+        .text(targetName)
+        .style("text-anchor", "middle")
+        .attr("font-size","20px");
+
+      // text label for the y axis of repurchase
+      block.append("text")
+        .attr("transform", "rotate(-90)")
+        .attr("y", 0)
+        .attr("x",0 - (height / 2))
+        .attr("dy", "1em")
+        .style("text-anchor", "middle")
+        .attr("font-size","16px")
+        .text(xName);
+
+      var textP = 157
+      var rectP = 142
+      if(vsOrders.length!=0){
+        textP = 142
+        rectP = 127
+      }
+
+      var rfmBlock = block.selectAll("g.rfm")
+            .data(rfmCounter)
+            .enter()
+            .append("g");
+      rfmBlock.append('text')
+            .text(d=>d.count)
+            .attr("y",(d) => y(d.count)+40)
+            .attr("x",(d,i)=>i*75 + textP)
+            .style("text-anchor", "middle");
+      rfmBlock.append("rect")
+            .attr("x",(d,i)=>i*75 + rectP)
+            .attr("height",(d)=> height - y(d.count)-130)
+            .attr("y",(d)=> y(d.count)+60)
+            .attr("fill",(d,i) => scaleColor(i))
+            .attr("width",30);
+
+      if(vsOrders!=0){
+        var vrfmCounter = [{name:"lost",count:0,cash:0},{name:"inactive",count:0,cash:0},{name:"potential",count:0,cash:0},{name:"risk",count:0,cash:0},{name:"unsteady",count:0,cash:0},{name:"emerging",count:0,cash:0},{name:"active",count:0,cash:0},{name:"top",count:0,cash:0}];
+        if(targetName=="顧客數"){
+          vrfmGroup.forEach((rfm) => {
+            for(var i =0; i<8; i++){
+              if(rfm.group == vrfmCounter[i].name){
+                vrfmCounter[i].count++;
+                break;
+              }
+            }
+          })
+        }else if(targetName=="平均消費金額"){
+          vrfmGroup.forEach((rfm) => {
+            for(var i =0; i<8; i++){
+              if(rfm.group == vrfmCounter[i].name){
+                vrfmCounter[i].count++;
+                vrfmCounter[i].cash+=rfm.monetary;
+                break;
+              }
+            }
+          })
+          vrfmCounter.forEach((rc) =>{
+            if(rc.count != 0){
+              rc.count = (rc.cash / rc.count).toFixed(2);
+            }
+          })
+        }else{
+          vrfmGroup.forEach((rfm) => {
+            for(var i =0; i<8; i++){
+              if(rfm.group == vrfmCounter[i].name){
+                vrfmCounter[i].count+=rfm.monetary;
+                break;
+              }
+            }
+          })
+        }
+        var vrfmBlock = block.selectAll("g.vrfm")
+              .data(vrfmCounter)
+              .enter()
+              .append("g");
+        vrfmBlock.append('text')
+              .text(d=>d.count)
+              .attr("y",(d) => y(d.count)+40)
+              .attr("x",(d,i)=>i*75 + 172)
+              .style("text-anchor", "middle");
+        vrfmBlock.append("rect")
+              .attr("x",(d,i)=>i*75 + 157)
+              .attr("height",(d)=> height - y(d.count)-130)
+              .attr("y",(d)=> y(d.count)+60)
+              .attr("fill",(d,i) => scaleColor(i))
+              .attr("fill-opacity","0.6")
+              .attr("width",30);
+      }
+    }
+    showTargetBar(8000,"顧客數","顧客數");
+  
+
+    var clickGroup = [];
+    function rfmAnalysis(group){
+      tbody.selectAll("tr").remove();
+      tbody.selectAll("td").remove();
+      clickGroup = [];
+      if(group=="all"){
+        clickGroup = rfmGroup;
+      }else{
+        rfmGroup.forEach((rfm) => {
+          if(rfm.group == group){
+            clickGroup.push(rfm);
+          }
+        })
+      }
+      
+      //detail資料行
+      var rows = tbody.selectAll("tr")
+            .data(clickGroup)
+            .enter()
+            .append("tr");
+
+      //detail資料內容
+      var cells = rows.selectAll("td")
+            .data(function(row) {
+                return ['user','group','monetary','recency','frequency'].map(function(column) {
+                    return {column: column, value: row[column]};
+                });
+            })
+            .enter()
+            .append("td")
+            .html((d)=>d.value)
+            .style("font-size","20px")
+    }
+    rfmAnalysis("all");
+    
+  </script>
+  
+{% endblock %}

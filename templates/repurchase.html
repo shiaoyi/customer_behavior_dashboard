@@ -1,0 +1,320 @@
+{% extends "base.html" %}
+
+{% block dashboard_content %}
+  <h1>回購週期分析</h1>
+  <br>
+  <div class="block" id="block-repurchase">
+    <svg></svg>
+  </div>
+  <div class="detail" id="block-detail">
+    <div style="text-align: center;">
+      <h1 style="display:inline-block">顧客回購週期</h1>
+      <div id="rep-explain" class="explain">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-exclamation-circle" viewBox="0 0 16 16">
+          <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+          <path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 4.995z"/>
+        </svg>
+      </div>
+      <div style='position:relative;width:0;height:0;display:inline-block;'>
+        <div id="rep-tip" class="tip" style="width: 320px;">
+          客戶回購次數：客戶購買次數 - 第一次購買<br>
+          <br>
+          超過回購週期：最後一次回購(天) - 平均回購週期。若應回購但未回購的情形，超過回購週期天數會為正值，且越晚回購數值越大。反之，超過回購週期天數為負值的話表示提前回購天數。<br>
+          <button id="rep-tip-btn" class="tip-btn" type="button">Close</button>
+        </div>
+      </div>
+    </div>
+    <div class="repurchase-detail"><table></table></div>
+  </div>
+
+  <style>
+    .explain{
+      display: inline-block;
+      cursor: pointer;
+      vertical-align: top;
+    }
+    .tip{
+      display: none;
+      padding: 12px;
+      border-radius: 6px;
+      background-color: #555;
+      color: #fff;
+      position: absolute;
+      width: 250px;
+      top: -30px;
+      left: 5px;
+      text-align: left;
+    }
+    .tip-btn{
+      background-color: #fff;
+      border: none;
+      border-radius: 6px;
+      color: #555;
+      margin: 10px 0 4px 0;
+      float: right;
+    }
+    .tip-btn:focus{
+      outline: none;
+    }
+    .block, .detail{
+      border-radius: 12px;
+      box-shadow: 0 6px 10px -4px rgba(0,0,0,.15);
+      background-color: #fff;
+      color: #252422;
+      padding: 20px;
+      margin-bottom: 30px;
+    }
+    #block-repurchase{
+      width: 1250px;
+    }
+    #block-repurchase svg{
+      width: 1200px;
+      height: 500px;
+    }
+    #block-detail{
+      width: 1000px;
+      height: 500px;
+    }
+    #block-detail h1{
+      color: #555;
+      margin-top: 0px;
+      text-align: center;
+      font-size: 26px;
+      font-weight: 500;
+    }
+    .repurchase-detail{
+      height: 430px;
+      overflow: scroll;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+    th, td {
+      text-align: left;
+      padding: 8px;
+    }
+    table thead tr {
+      border-bottom: solid 3px #ddd;
+    }
+    tr:nth-child(even) {
+      background-color: #f2f2f2;
+    }
+    
+    th{
+      font-weight: bold;
+      width: 200px;
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/6.3.1/d3.min.js" integrity="sha512-9H86d5lhAwgf2/u29K4N5G6pZThNOojI8kMT4nT4NHvVR02cM85M06KJRQXkI0XgQWBpzQyIyr8LVomyu1AQdw==" crossorigin="anonymous"></script>
+  <script>
+    // tip
+    var repExplain = document.getElementById("rep-explain");
+    var repTip = document.getElementById("rep-tip");
+    var tipBtn = document.getElementById("rep-tip-btn");
+    repExplain.addEventListener('click', function(){
+      if(repTip.style.display == "inline-block"){
+        repTip.style.display = "none";
+      }else{
+        repTip.style.display = "inline-block";
+      }
+    })
+    tipBtn.addEventListener('click', function(){
+      repTip.style.display = "none";
+    })
+  </script>
+  <script>
+    
+    var allOldCus = JSON.parse('{{ order_all_oldcus | safe}}');
+    // console.log(allOldCus)
+
+    var block = d3.selectAll(".block svg");
+    var table = d3.select(".detail table")
+
+    var height = 500;
+    var width = 1200;
+
+    var x = d3.scaleLinear()
+            .domain([0,730])
+            .range([0,width-100]);
+    var xAxis = d3.axisBottom(x);
+    // x軸位置
+    block.append("g")
+      .attr("class", "x axis")
+      .attr("transform", "translate(60,"+(height-60)+")")
+      .call(xAxis);
+
+    var y = d3.scaleLinear()
+            .domain([0,1200])
+            .range([height-120,0]);
+
+    var yAxis = d3.axisLeft(y);
+
+    // y軸位置
+    block.append("g")
+      .attr("class", "y axis")
+      .attr("transform", "translate(60, 60)")
+      .call(yAxis);
+
+    //title
+    block.append("text")
+      .attr('x', width/2)
+      .attr('y', height/9)
+      .text("顧客回購週期")
+      .style("text-anchor", "middle")
+      .attr("font-size","20px");
+
+    // text label for the x axis of repurchase
+    block.append("text")             
+        .attr("transform",
+              "translate(" + (width/2) + " ," + (height-10) + ")")
+        .style("text-anchor", "middle")
+        .style("font-size","16px")
+        .text("回購週期(天)");
+
+    // text label for the y axis of repurchase
+    block.append("text")
+        .attr("transform", "rotate(-90)")
+        .attr("y", 0)
+        .attr("x",0 - (height / 2))
+        .attr("dy", "1em")
+        .style("text-anchor", "middle")
+        .style("font-size","16px")
+        .text("顧客數");
+
+    var timeGroup = new Array(73).fill(null).map(()=>({}));
+    for(var i = 0; i < 73; i++){
+      timeGroup[i].name = (i*10+1) + "-" + ((i+1)*10);
+      timeGroup[i].group_q = 0;
+    }
+
+    var parseDate = d3.timeFormat("%Y-%m-%d");
+    var lastMid = "";
+    var lastDate = "";
+    var midRepeat = 0;
+
+    var cusGroup = [];
+    var allCycle = 0;
+
+    allOldCus.forEach((order,i)=>{
+      nowMid = order.MID;
+      nowDate = order.purchase_date;
+      if(lastMid != nowMid){
+        midRepeat = 0;
+        recentDate = nowDate;
+      }else{
+        midRepeat++;
+        cycle = parseInt(Math.abs(new Date(parseDate(new Date(lastDate)))-new Date(parseDate(new Date(nowDate)))))/ 1000 / 60 / 60 / 24;
+        allCycle += cycle;
+      }
+      if(midRepeat == 1){
+        if(cycle <= 730){
+          if(cycle==0){
+            timeGroup[0].group_q++;
+          }else if(cycle%10==0){
+            timeGroup[parseInt(cycle/10)-1].group_q++;
+          }else{
+            timeGroup[parseInt(cycle/10)].group_q++;
+          }
+        }
+      }
+      // for detail
+      if (midRepeat==(order.OIDQ-1)){
+        var cus = new Object();
+        cus.user = order.user;
+        cus.rpMean = Math.round(allCycle / (order.OIDQ-1));
+        cus.rpOIDQ = order.OIDQ - 1;
+        cus.rpRecent = parseInt(Math.abs(new Date(parseDate(new Date()))-new Date(parseDate(new Date(recentDate)))))/ 1000 / 60 / 60 / 24;;
+        cus.rpOver = cus.rpRecent - cus.rpMean;
+        cusGroup.push(cus);
+        allCycle = 0;
+      }
+      lastMid = nowMid;
+      lastDate = nowDate;
+    })
+
+    // console.log(timeGroup);
+    // console.log(cusGroup);
+
+    // 長條圖
+    var scaleColor = d3.scaleLinear()
+          .domain([0,73])
+          .range(['red','yellow'])
+    var repurchaseBlock = block.selectAll("g.repurchase")
+      .data(timeGroup)
+      .enter()
+      .append("g")
+    repurchaseBlock.append('text')
+          .text(d=>d.group_q)
+          .attr("y",(d) => y(d.group_q) + 55)
+          .style("text-anchor", "middle")
+          .attr("x",(d,i)=>i*15.1 + 67);
+    repurchaseBlock.append("rect")
+          .attr("x",(d,i) =>i*15.1 + 60)
+          .attr("height",(d)=> height - 120 - y(d.group_q))
+          .attr("y",(d) => y(d.group_q) + 60)
+          .attr("fill",(d,i) => scaleColor(i))
+          .attr("width",14.5)
+
+    // detail block
+    thead = table.append("thead"),
+    tbody = table.append("tbody");
+    // 表頭
+    thead.append("tr")
+          .selectAll("th")
+          .data(["顧客名","平均回購週期(天)","客戶回購次數","最近一次回購(天)","超過回購週期(天)"])
+          .enter()
+          .append("th")
+          .text((column)=>column)
+          .style("font-size","22px")
+          .style("font-weight", "400")
+          .style("text-align", "left");
+    //資料行
+    var rows = tbody.selectAll("tr")
+          .data(cusGroup)
+          .enter()
+          .append("tr");
+
+    //資料內容
+    var cells = rows.selectAll("td")
+          .data(function(row) {
+              return ['user','rpMean','rpOIDQ','rpRecent','rpOver'].map(function(column) {
+                  return {column: column, value: row[column]};
+              });
+          })
+          .enter()
+          .append("td")
+          .html((d)=>d.value)
+          .style("font-size","20px")
+
+  </script>
+  <style>
+    .axis path,.axis line {
+      stroke: #F2E8DE;
+    }
+    text{
+      fill: #999;
+    }
+    line {
+      stroke-width: 1.5px;
+    }
+    path{
+      stroke-width: 2px;
+    }
+    .old-path{
+      stroke-dasharray: 5,5;
+    }
+    .compare-line {
+      stroke: #777;
+      stroke-width: 2px;
+    }
+    circle{
+      stroke-width: 1px;
+      r: 5;
+    }
+    .hover-block{
+      fill: transparent;
+    }
+  </style>
+  
+{% endblock %}

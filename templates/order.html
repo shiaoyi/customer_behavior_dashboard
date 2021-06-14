@@ -1,0 +1,324 @@
+{% extends "base.html" %}
+
+{% block dashboard_content %}
+
+  <h1>Order</h1>
+  <br>
+  <div>
+    <!-- <a style='display:inline-block;' href=/order/crawler><button type="button" class="btn btn-secondary" onclick="loading();">更新近20天資料</button></a>
+    <p id='load' style='display:none;font-size:18px;color:gray;'>&nbsp;更新中...請勿關閉視窗</p> -->
+    <p id='updated' style='display:inline-block;font-size:18px;color:gray;'>&nbsp;Updated : {{ newest_date }}</p>
+  </div>
+
+  <div class="alert alert-danger" role="alert" style="margin-top:10px;display:none;">
+    <button type="button" onclick="closeAlert()" style="border:none;background-color:transparent;font-size:20px;outline:none;">&times;</button>
+    <strong>日期格式錯誤！</strong> 請重新設置日期
+  </div>
+
+  <div id='content'>
+    
+    <div class="col-md-12" style="padding-right:0px;padding-left:0px;">
+      <form action='/order' class="col-md-12" style="margin-top:20px;border:solid 2px #ddd;padding:15px;border-radius:6px;" onsubmit="return validate()">
+        <label for="min">購買日期</label><br>
+        <p style='display:inline-block;'>From:&nbsp;</p><p style='display:inline-block;'><input name="startdate" id="min" type="text" class="form-control" onchange='keepValue(this);'></p>
+        <p style='display:inline-block;'>&nbsp;&nbsp;&nbsp;To:&nbsp;</p><p style='display:inline-block;'><input name="enddate" id="max" type="text" class="form-control" onchange='keepValue(this);'></p>
+        <br>
+        <div class="row" style="margin-top:10px;margin-bottom:10px;">
+          <div class="col-md-3">
+            <label for="brand">品牌</label>
+            <select class="form-control" id="brand" name="brand" onload='keepValue(this);'>
+              <option value=''>All</option>
+              <option value='D'>Dr. Calorie</option>
+              <option value='Z'>Zephyrine</option>
+              <option value='C'>CHOYeR</option>
+              <option value='L'>Laler</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label for="money_status">匯款狀態</label>
+            <select class="form-control" id="money_status" name="money_status" onload='keepValue(this);'>
+              <option value=0>All</option>
+              <option value=1>未付款</option>
+              <option value=2>已付款</option>
+              <option value=3>已轉帳(待查)</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label for="order_status">訂單狀態</label>
+            <select class="form-control" id="order_status" name="order_status" onload='keepValue(this);'>
+              <option value=0>All</option>
+              <option value=1>待處理</option>
+              <option value=2>已配送</option>
+              <option value=3>已完成</option>
+              <option value=4>已取消</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label for="payment_way">付款方式</label>
+            <select class="form-control" id="payment_way" name="payment_way" onload='keepValue(this);'>
+              <option value=0>All</option>
+              <option value=1>到宅付款</option>
+              <option value=2>信用卡</option>
+              <option value=3>ATM</option>
+              <option value=4>超商代碼</option>
+            </select>
+          </div>
+        </div>
+        <br>
+        <div class="row">
+          <div class="col-md-3">
+            <label for="order_id">訂單ID</label>
+            <input name="order_id" id="order_id" type="text" class="form-control" onload='keepValue(this);'>
+          </div>
+          <div class="col-md-3">
+            <label for="product">商品</label>
+            <input name="product" id="product" type="text" class="form-control" onload='keepValue(this);'>
+          </div>
+          <div class="col-md-3">
+            <label for="sku">SKU</label>
+            <input name="sku" id="sku" type="text" class="form-control" onload='keepValue(this);'>
+          </div>
+          <div class="col-md-3">
+            <label for="utm_source">utm_source</label>
+            <input name="utm_source" id="utm_source" type="text" class="form-control" onload='keepValue(this);'>
+          </div>
+        </div>
+        <br>
+        <button type="submit"style="float:right;padding:5px 8px;background-color:#66b0ed;color:white;border-radius:8px;outline:none;width:70px;font-size:16px;border:solid 1px white;">篩 選</button>
+      </form>
+    </div>
+    <div style="display:inline-block;margin-top:25px">
+      {{ pagination.info }} &nbsp;&nbsp;&nbsp;&nbsp;
+      <form action='/order/report' style="display:inline-block;">
+        <button type="submit" id="filter_data" style="padding:5px 8px;background-color:#66b0ed;color:white;border-radius:6px;outline:none;width:90px;font-size:16px;border:solid 1px white;">下載報表</button>
+      </form>
+    </div>
+    <div style='display:block;overflow:auto;margin: 10px 0px;'>
+      <table id='order'>
+        <thead>
+          <tr>
+              <th>訂單ID</th>
+              <th>商品</th>
+              <th>SKU</th>
+              <th>數量</th>
+              <th>單價</th>
+              <th>總計</th>
+              <th>商品小計</th>
+              <th>utm_source</th>
+              <th>會員</th>
+              <th>會員ID</th>
+              <th>會員群組</th>
+              <th>購買人</th>
+              <th>電話</th>
+              <th>E-Mail</th>
+              <th>金額</th>
+              <th>匯款狀態</th>
+              <th>訂單狀態</th>
+              <th>付款方式</th>
+              <th>配送方式</th>
+              <th>IP位址</th>
+              <th>瀏覽系統</th>
+              <th>購買日期</th>
+              <th>上次購買日期</th>
+              <th>修改日期</th>
+              <th>購買人 - 聯絡地址</th>
+              <th>備註</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for order in orders %}
+          <tr>
+            <td>{{ order[6] }}</td>
+            <td title="{{ order[0] }}">{{ order[0] }}</td>
+            <td>{{ order[1] }}</td>
+            <td>{{ order[2] }}</td>
+            <td>{{ order[3] }}</td>
+            <td>{{ order[4] }}</td>
+            <td>{{ order[5] }}</td>
+            <td>{{ order[7] }}</td>
+            <td>{{ order[8] }}</td>
+            <td>{{ order[26] }}</td>
+            <td>{{ order[9] }}</td>
+            <td>{{ order[10] }}</td>
+            <td>{{ order[11] }}</td>
+            <td title="{{ order[12] }}">{{ order[12] }}</td>
+            <td>{{ order[13] }}</td>
+            <td>{{ order[14] }}</td>
+            <td>{{ order[15] }}</td>
+            <td>{{ order[16] }}</td>
+            <td title="{{ order[17] }}">{{ order[17] }}</td>
+            <td>{{ order[18] }}</td>
+            <td title="{{ order[19] }}">{{ order[19] }}</td>
+            <td>{{ order[20] }}</td>
+            <td>{{ order[21] }}</td>
+            <td>{{ order[22] }}</td>
+            <td title="{{ order[23] }}">{{ order[23] }}</td>
+            <td title="{{ order[24] }}">{{ order[24] }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {{ pagination.links }}
+  </div>
+
+  <link rel="stylesheet" href="//code.jquery.com/ui/1.12.0/themes/base/jquery-ui.css">
+  <script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.5.1.js"></script>
+  <script src="https://code.jquery.com/ui/1.12.0/jquery-ui.js" defer></script>
+
+  <script type="text/javascript">
+    function loading(){
+      document.getElementById('load').style.display = 'inline-block';
+      document.getElementById('content').style.display = 'none';
+      document.getElementById('updated').style.display = 'none';
+    }
+
+    $(document).ready(function(){
+      // 若url有參數就先套用
+      keepValue()
+
+      $("#min").datepicker({ onSelect: function () { 
+
+       }, changeMonth: true, changeYear: true, dateFormat : "yy-mm-dd" });
+
+      $("#max").datepicker({ onSelect: function () { 
+
+       }, changeMonth: true, changeYear: true, dateFormat : "yy-mm-dd" });
+      
+    });
+
+    function keepValue() {
+      var newest_date = new Date('{{newest_date}}');
+
+      if(new URL(window.location).searchParams.get("enddate")){
+        $('#max').val(new URL(window.location).searchParams.get("enddate"));
+      } else if ($('#max').val() == '' && (!isNaN(newest_date))){
+        $('#max').val(newest_date.getFullYear()+'-'+(newest_date.getMonth()+1)+'-'+newest_date.getDate());
+      }else{
+        $('#max').val('')
+      }
+
+      if(new URL(window.location).searchParams.get("startdate")){
+        $('#min').val(new URL(window.location).searchParams.get("startdate"));
+      }else if ($('#min').val() == '' && (!isNaN(newest_date))){
+        var oldest_date = new Date(newest_date.setFullYear(newest_date.getFullYear() - 1));
+        $('#min').val(oldest_date.getFullYear()+'-'+(oldest_date.getMonth()+1)+'-'+oldest_date.getDate());
+      }else{
+        $('#min').val('')
+      }
+
+      if(new URL(window.location).searchParams.get("brand")){
+        $('#brand').val(new URL(window.location).searchParams.get("brand"));
+      }
+      if(new URL(window.location).searchParams.get("money_status")){
+        $('#money_status').val(new URL(window.location).searchParams.get("money_status"));
+      }
+      if(new URL(window.location).searchParams.get("order_status")){
+        $('#order_status').val(new URL(window.location).searchParams.get("order_status"));
+      }
+      if(new URL(window.location).searchParams.get("payment_way")){
+        $('#payment_way').val(new URL(window.location).searchParams.get("payment_way"));
+      }
+
+      if(new URL(window.location).searchParams.get("order_id")){
+        $('#order_id').val(new URL(window.location).searchParams.get("order_id"));
+      }
+      if(new URL(window.location).searchParams.get("product")){
+        $('#product').val(new URL(window.location).searchParams.get("product"));
+      }
+      if(new URL(window.location).searchParams.get("sku")){
+        $('#sku').val(new URL(window.location).searchParams.get("sku"));
+      }
+      if(new URL(window.location).searchParams.get("utm_source")){
+        $('#utm_source').val(new URL(window.location).searchParams.get("utm_source"));
+      }
+    }
+    
+    function validate() {
+      var min = $('#min').val();
+      var max = $('#max').val();
+      if (min > max){ 
+        $(".alert").show();
+        return false
+      } else{
+        $(".alert").hide();
+      }
+
+      if ($('#brand').val()==''){
+        $('#brand').attr('name','')
+      }
+
+      if ($('#money_status').val()==0){
+        $('#money_status').attr('name','')
+      }
+
+      if ($('#order_status').val()==0){
+        $('#order_status').attr('name','')
+      }
+
+      if ($('#payment_way').val()==0){
+        $('#payment_way').attr('name','')
+      }
+
+      if ($('#order_id').val()==''){
+        $('#order_id').attr('name','')
+      }
+
+      if ($('#product').val()==''){
+        $('#product').attr('name','')
+      }
+
+      if ($('#sku').val()==''){
+        $('#sku').attr('name','')
+      }
+
+      if ($('#utm_source').val()==''){
+        $('#utm_source').attr('name','')
+      }
+    }
+
+    function closeAlert(){
+      $(".alert").hide();
+    }
+  
+  </script>
+  <style>
+    
+    #order {
+      font-family: Arial, Helvetica, sans-serif;
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 10px;
+      table-layout: fixed
+    }
+    #order td, #order th {
+      border-top: 1px solid #ddd;
+      padding: 2px 8px;
+      width: 150px
+    }
+    #order td {
+      overflow:hidden; 
+      white-space:nowrap; 
+      text-overflow:ellipsis;
+      height: 100px;
+    }
+
+    /* #order tr:nth-child(odd){background-color: #f2f2f2;} */
+
+    #order tr:hover {background-color: #f2f2f2;}
+
+    #order th {
+      padding-top: 12px;
+      padding-bottom: 12px;
+      text-align: left;
+      background-color:white;
+    }
+    .pagination-page-info{
+      display: inline-block;
+    }
+
+    select.form-control:not([size]):not([multiple]) {
+      height: 34px;
+    }
+  </style>
+{% endblock %}

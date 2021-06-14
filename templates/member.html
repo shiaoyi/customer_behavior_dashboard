@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+
+{% block dashboard_content %}
+  <h1>Member</h1>
+  <br>
+  <div>
+    <!-- <a style='display:inline-block;' href=/member/crawler><button type="button" class="btn btn-secondary" onclick="loading();">更新近期資料</button></a>
+    <p id='load' style='display:none;font-size:18px;color:gray;'>&nbsp;更新中...請勿關閉視窗</p> -->
+    <p id='updated' style='display:inline-block;font-size:18px;color:gray;'>&nbsp;Updated : {{ newest_date }}</p>
+  </div>
+  <div class="alert alert-danger" role="alert" style="margin-top:10px;display:none;">
+    <button type="button" onclick="closeAlert()" style="border:none;background-color:transparent;font-size:20px;outline:none;">&times;</button>
+    <strong>日期格式錯誤！</strong> 請重新設置日期
+  </div>
+
+  <div id='content'>
+    <div class="col-md-12" style="padding-right:0px;padding-left:0px;">
+      <form action='/member' class="col-md-12" style="margin-top:20px;border:solid 2px #ddd;padding:15px;border-radius:6px;" onsubmit="return validate()">
+        <label for="min">加入日期</label><br>
+        <p style='display:inline-block;'>From:&nbsp;</p><p style='display:inline-block;'><input name="startdate" id="min" type="text" class="form-control" onchange='keepDate(this);'></p>
+        <p style='display:inline-block;'>&nbsp;&nbsp;&nbsp;To:&nbsp;</p><p style='display:inline-block;'><input name="enddate" id="max" type="text" class="form-control" onchange='keepDate(this);'></p>
+        <br>
+        <!-- <div class="row" style="margin-top:10px;margin-bottom:10px;">
+          
+        </div>
+        <br> -->
+        <div class="row">
+          <div class="col-md-3">
+            <label for="member_id">會員ID</label>
+            <input name="member_id" id="member_id" type="text" class="form-control" onload='keepValue(this);'>
+          </div>
+          <div class="col-md-3">
+            <label for="register">註冊方式</label>
+            <select class="form-control" id="register" name="register" onload='keepValue(this);'>
+              <option value=0>All</option>
+              <option value=1>First party</option>
+              <option value=2>LINE</option>
+              <option value=3>臉書</option>
+            </select>
+          </div>
+        </div>
+        <br>
+        <button type="submit"style="float:right;padding:5px 8px;background-color:#66b0ed;color:white;border-radius:8px;outline:none;width:70px;font-size:16px;border:solid 1px white;">篩 選</button>
+      </form>
+    </div>
+    <div style="display:inline-block;margin-top:25px">
+        {{ pagination.info }} &nbsp;&nbsp;&nbsp;&nbsp;
+        <form action='/member/report' style="display:inline-block;">
+            <button type="submit" id="filter_data" style="padding:5px 8px;background-color:#66b0ed;color:white;border-radius:6px;outline:none;width:90px;font-size:16px;border:solid 1px white;">下載報表</button>
+        </form>
+    </div>
+    <div style='display:block;overflow:auto;margin: 10px 0px;'>
+        <table id='member'>
+            <thead>
+            <tr>
+                <th>會員ID</th>
+                <th>註冊方式</th>
+                <th>會員群組</th>
+                <th>標籤</th>
+                <th>姓名</th>
+                <th>電子郵件</th>
+                <th>性別</th>
+                <th>電話</th>
+                <th>Line ID</th>
+                <th>生日</th>
+                <th>臉書帳號</th>
+                <th>加入日期</th>
+            </tr>
+            </thead>
+            <tbody>
+            {% for member in members %}
+            <tr>
+                <td>{{ member[0] }}</td>
+                <td>{{ member[12] }}</td>
+                {% if member[1]=='1' %}
+                <td>一般會員</td>
+                {% elif member[1]=='5' %}
+                <td>白金會員</td>
+                {% else %}
+                <td>黃金會員</td>
+                {% endif %}
+                <td>{{ member[2] }}</td>
+                <td>{{ member[3] }}</td>
+                <td title="{{ member[4] }}">{{ member[4] }}</td>
+                {% if member[5]=='1' %}
+                <td>女</td>
+                {% else %}
+                <td>男</td>
+                {% endif %}
+                <td>{{ member[6] }}</td>
+                <td>{{ member[7] }}</td>
+                <td>{{ member[8] }}</td>
+                <td>{{ member[11] }}</td>
+                <td>{{ member[9] }}</td>
+            </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {{ pagination.links }}
+  </div>
+
+  <link rel="stylesheet" href="//code.jquery.com/ui/1.12.0/themes/base/jquery-ui.css">
+  <script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.5.1.js"></script>
+  <script src="https://code.jquery.com/ui/1.12.0/jquery-ui.js" defer></script>
+
+  <script type="text/javascript">
+    function loading(){
+      document.getElementById('load').style.display = 'inline-block';
+      document.getElementById('content').style.display = 'none';
+      document.getElementById('updated').style.display = 'none';
+    }
+
+    $(document).ready(function(){
+      keepDate()
+      keepValue()
+
+      $("#min").datepicker({ onSelect: function () { 
+
+       }, changeMonth: true, changeYear: true, dateFormat : "yy-mm-dd" });
+
+      $("#max").datepicker({ onSelect: function () { 
+
+       }, changeMonth: true, changeYear: true, dateFormat : "yy-mm-dd" });
+      
+    });
+
+    function keepDate() {
+      var newest_date = new Date('{{newest_date}}');
+
+      if(new URL(window.location).searchParams.get("enddate")){
+        $('#max').val(new URL(window.location).searchParams.get("enddate"));
+      } else if ($('#max').val() == '' && (!isNaN(newest_date))){
+        $('#max').val(newest_date.getFullYear()+'-'+(newest_date.getMonth()+1)+'-'+newest_date.getDate());
+      }else{
+        $('#max').val('')
+      }
+
+      if(new URL(window.location).searchParams.get("startdate")){
+        $('#min').val(new URL(window.location).searchParams.get("startdate"));
+      }else if ($('#min').val() == '' && (!isNaN(newest_date))){
+        var oldest_date = new Date(newest_date.setFullYear(newest_date.getFullYear() - 1));
+        $('#min').val(oldest_date.getFullYear()+'-'+(oldest_date.getMonth()+1)+'-'+oldest_date.getDate());
+      }else{
+        $('#min').val('')
+      }
+    }
+
+    function keepValue() {
+      if(new URL(window.location).searchParams.get("member_id")){
+        $('#member_id').val(new URL(window.location).searchParams.get("member_id"));
+      }
+      if(new URL(window.location).searchParams.get("register")){
+        $('#register').val(new URL(window.location).searchParams.get("register"));
+      }
+    }
+    
+    function validate() {
+      var min = $('#min').val();
+      var max = $('#max').val();
+      if (min > max){ 
+        $(".alert").show();
+        return false
+      } else{
+        $(".alert").hide();
+      }
+
+      if ($('#member_id').val()==''){
+        $('#member_id').attr('name','')
+      }
+
+      if ($('#register').val()==0){
+        $('#register').attr('name','')
+      }
+    }
+
+    function closeAlert(){
+      $(".alert").hide();
+    }
+  
+  </script>
+  <style>
+    
+    #member {
+      font-family: Arial, Helvetica, sans-serif;
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 10px;
+      table-layout: fixed
+    }
+    #member td, #member th {
+      border-top: 1px solid #ddd;
+      padding: 2px 8px;
+      width: 150px
+    }
+    #member td {
+      overflow:hidden; 
+      white-space:nowrap; 
+      text-overflow:ellipsis;
+      height: 100px;
+    }
+
+    /* #member tr:nth-child(odd){background-color: #f2f2f2;} */
+
+    #member tr:hover {background-color: #f2f2f2;}
+
+    #member th {
+      padding-top: 12px;
+      padding-bottom: 12px;
+      text-align: left;
+      background-color:white;
+    }
+    .pagination-page-info{
+      display: inline-block;
+    }
+
+    select.form-control:not([size]):not([multiple]) {
+      height: 34px;
+    }
+  </style>
+{% endblock %}

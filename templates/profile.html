@@ -1,0 +1,573 @@
+{% extends "base.html" %}
+
+{% block dashboard_content %}
+  <h1>客戶輪廓分析</h1>
+  <br>
+  <div id="date-picker">
+    <select id="date-select">
+      <option value=0>近一年內</option>
+      <option value=1>近半年內</option>
+      <option value=2>近三個月內</option>
+    </select>
+  </div>
+  <input class="date-select-btn" type="button" onclick="datePick()" value="Go">
+
+  <div class="block" id="block-customer">
+    <svg></svg>
+  </div>
+  
+  <div class="block" id="block-county">
+    <svg></svg>
+  </div>
+  
+  <div style="dispaly:inline-block;">
+    <div class="block" id="block-age">
+      <svg></svg>
+    </div>
+  
+    <div class="block" id="block-sex">
+      <svg></svg>
+    </div>
+  </div>
+  
+  <style>
+    #date-picker,.date-select-btn{
+      display: inline-block;
+      margin-right: 10px;
+    }
+    #date-picker select{
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 16px;
+      border: none;
+      box-shadow: 0 6px 10px -4px rgba(0,0,0,.15);
+      margin-bottom: 20px;
+      border-right: solid 8px transparent;
+    }
+    #date-picker select:active, #date-picker select:focus{
+      outline-color: #fcad62;
+    }
+    .date-select-btn{
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 16px;
+      box-shadow: 0 6px 10px -4px rgba(0,0,0,.15);
+      margin-bottom: 20px;
+      background-color:#fff;
+      border: solid 2px #aaa;
+      font-weight: 500;
+    }
+    .date-select-btn:hover{
+      background-color:#aaa;
+      color: #fff
+    }
+    .date-select-btn:active, .date-select-btn:focus{
+      outline-color: #aaa;
+    }
+    .block{
+      border-radius: 12px;
+      box-shadow: 0 6px 10px -4px rgba(0,0,0,.15);
+      background-color: #fff;
+      color: #252422;
+      margin-bottom: 80px;
+      padding: 20px;
+    }
+    #block-customer, #block-county{
+      width: 1200px;
+    }
+    #block-customer svg, #block-county svg{
+      width: 1200px;
+      height: 500px;
+    }
+    #block-age, #block-sex{
+      width: 600px;
+      display: inline-block;
+      margin-right: 40px;
+    }
+    #block-age svg, #block-sex svg{
+      width: 600px;
+      height: 510px;
+    }
+  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/6.3.1/d3.min.js" integrity="sha512-9H86d5lhAwgf2/u29K4N5G6pZThNOojI8kMT4nT4NHvVR02cM85M06KJRQXkI0XgQWBpzQyIyr8LVomyu1AQdw==" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/topojson@3"></script>
+  <style>
+    .axis path,.axis line {
+      stroke: #F2E8DE;
+    }
+    text{
+      fill: #999;
+    }
+    line {
+      stroke-width: 1.5px;
+    }
+    path{
+      stroke-width: 2px;
+    }
+  </style>
+  <script>
+    
+    var orders = JSON.parse('{{ order_data | safe}}');
+    var members = JSON.parse('{{ member_data | safe}}');
+    // console.log(orders);
+
+    var block = d3.selectAll(".block svg");
+    var blCustomer = d3.select("#block-customer svg");
+    var blCounty = d3.select("#block-county svg");
+    var blAge = d3.select("#block-age svg");
+    var blSex = d3.select("#block-sex svg");
+
+    var height = 500;
+    var bigWidth = 1200;
+    var smallWidth = 600;
+
+    var newViewDate = new Date(Date.now());
+    var oldViewDate = new Date(Date.now());
+    newViewDate = new Date(newViewDate.setDate(newViewDate.getDate()-1));
+    oldViewDate = new Date(oldViewDate.setMonth(newViewDate.getMonth()-12));
+
+    // console.log(JSON.stringify(oldViewDate));
+    var parseDate = d3.timeFormat("%Y-%m-%d 00:00");
+    var x = d3.scaleTime()
+              .domain([new Date(parseDate(oldViewDate)),new Date(parseDate(newViewDate))])
+              .range([0,bigWidth-100]);
+    var y = d3.scaleLinear()
+              .domain([0,15000])
+              .range([height-120,0]);
+    var xAxis = d3.axisBottom(x)
+                  .tickFormat(d3.timeFormat("%b"));
+    var yAxis = d3.axisLeft(y);
+
+    var xAge= d3.scaleLinear()
+              .domain([0,100])
+              .range([0,smallWidth-100]);
+    var yAge = d3.scaleLinear()
+              .domain([0,5000])
+              .range([height-120,0]);
+    var xAgeAxis = d3.axisBottom(xAge);
+    var yAgeAxis = d3.axisLeft(yAge);
+
+    var xSex= d3.scaleBand()
+        .domain(["Female","Male"])
+        .range([0, smallWidth-100]);
+    var ySex = d3.scaleLinear()
+              .domain([0,25000])
+              .range([height-120,0]);
+    var xSexAxis = d3.axisBottom(xSex);
+    var ySexAxis = d3.axisLeft(ySex);
+
+    var counties = ["台北市","新北市","基隆市","宜蘭縣","桃園市","新竹市","新竹縣","苗栗縣","台中市","彰化縣","南投縣","雲林縣","嘉義市","嘉義縣","台南市","高雄市","屏東縣","花蓮縣","臺東縣","澎湖縣","金門縣","連江縣"]
+    var xCounty= d3.scaleBand()
+        .domain(counties)
+        .range([0, bigWidth-100]);
+    var yCounty = d3.scaleLinear()
+              .domain([0,2000])
+              .range([height-120,0]);
+    var xCountyAxis = d3.axisBottom(xCounty);
+    var yCountyAxis = d3.axisLeft(yCounty);
+
+    // x軸位置
+    blCustomer.append("g")
+      .attr("class", "x axis")
+      .attr("transform", "translate(60,"+(height-40)+")")
+      .call(xAxis);
+    blAge.append("g")
+      .attr("class", "x axis")
+      .attr("transform", "translate(60,"+(height-40)+")")
+      .call(xAgeAxis);
+    blSex.append("g")
+      .attr("class", "x axis")
+      .attr("transform", "translate(60,"+(height-40)+")")
+      .call(xSexAxis);
+    blCounty.append("g")
+      .attr("class", "x axis")
+      .attr("transform", "translate(60,"+(height-40)+")")
+      .call(xCountyAxis);
+    // text label for the x axis of age
+    blAge.append("text")             
+        .attr("transform",
+              "translate(" + (smallWidth/2) + " ," + (height) + ")")
+        .style("text-anchor", "middle")
+        .text("年齡");
+
+    // y軸位置
+    blCustomer.append("g")
+      .attr("class", "y axis")
+      .attr("transform", "translate(60, 80)")
+      .call(yAxis);
+    blAge.append("g")
+      .attr("class", "y axis")
+      .attr("transform", "translate(60, 80)")
+      .call(yAgeAxis);
+    blSex.append("g")
+      .attr("class", "y axis")
+      .attr("transform", "translate(60, 80)")
+      .call(ySexAxis);
+    blCounty.append("g")
+      .attr("class", "y axis")
+      .attr("transform", "translate(60, 80)")
+      .call(yCountyAxis);
+    // text label for the y axis of county
+    blCounty.append("text")
+        .attr("transform", "rotate(-90)")
+        .attr("y", 0)
+        .attr("x",0 - (height / 2))
+        .attr("dy", "1em")
+        .style("text-anchor", "middle")
+        .style("font-size", "14px")
+        .text("顧客數");
+    // text label for the y axis of age
+    blAge.append("text")
+        .attr("transform", "rotate(-90)")
+        .attr("y", 0)
+        .attr("x",0 - (height / 2))
+        .attr("dy", "1em")
+        .style("text-anchor", "middle")
+        .style("font-size", "14px")
+        .text("顧客數");
+    // text label for the y axis of sex
+    blSex.append("text")
+        .attr("transform", "rotate(-90)")
+        .attr("y", 0)
+        .attr("x",0 - (height / 2))
+        .attr("dy", "1em")
+        .style("text-anchor", "middle")
+        .style("font-size", "14px")
+        .text("顧客數");
+
+    //legend
+    var legendName = [{name: "顧客數"}];
+    var color = d3.scaleOrdinal(["#FCAD62","#cdcdcd"]);
+
+    var legend = blCustomer.selectAll(".legend")
+              .data(legendName)
+              .enter()
+              .append('g')
+              .attr('class', "legend");
+
+    legend.append('rect')
+      .attr('x', bigWidth - 130)
+      .attr('y', height/6)
+      .attr('width', 10)
+      .attr('height', 10)
+      .style('fill', (d) => color(d.name));
+
+    legend.append('text')
+      .attr('x', bigWidth - 110)
+      .attr('y', height/6+10)
+      .attr('font-size','14px')
+      .text((d) => d.name);
+
+    // title
+    blCustomer.append("text")
+      .attr('x', bigWidth/2)
+      .attr('y', height/7)
+      .text("顧客數變化趨勢")
+      .style("text-anchor", "middle")
+      .attr("font-size","20px");
+
+    blCounty.append("text")
+      .attr('x', bigWidth/2)
+      .attr('y', height/7)
+      .text("顧客數縣市分佈（貨運）")
+      .style("text-anchor", "middle")
+      .attr("font-size","20px");
+
+    blAge.append("text")
+      .attr('x', smallWidth/2)
+      .attr('y', height/7)
+      .text("顧客年齡分佈")
+      .style("text-anchor", "middle")
+      .attr("font-size","20px");
+
+    blSex.append("text")
+      .attr('x', smallWidth/2)
+      .attr('y', height/7)
+      .text("顧客性別分佈")
+      .style("text-anchor", "middle")
+      .attr("font-size","20px");
+
+    var blockTrend = d3.selectAll("#block-customer svg");
+    var blockCounty = d3.selectAll("#block-county svg");
+    var blockSex = d3.selectAll("#block-sex svg");
+    var blockAge = d3.selectAll("#block-age svg");
+
+    function renewData(){
+      blockTrend.selectAll(".customer-path").remove();
+      blockTrend.selectAll(".customer-text").remove();
+
+      blockSex.selectAll(".sex").remove();
+      blockAge.selectAll(".age").remove();
+      blockCounty.selectAll(".county").remove();
+
+      //把全部的電話分12個月
+      var newViewData = new Array(12).fill(null).map(()=>({}));
+      newViewData.forEach((data,i) =>{
+        if(newViewDate.getMonth() < i){
+          newViewDay = newViewDate.getFullYear()-1 + "-" + (i+1) + "-01";
+        }else{
+          newViewDay = newViewDate.getFullYear() + "-" + (i+1) + "-01";
+        }
+        data.month = new Date(newViewDay);
+        data.mid = [];
+        data.mid_q = 0;
+      })
+
+      // 處理county
+      var countyGroup = new Array(22).fill(null).map(()=>({}));
+      for(var i = 0; i < 22; i++){
+        countyGroup[i].name = counties[i];
+        countyGroup[i].group = [];
+        countyGroup[i].group_q = 0;
+      }
+
+      filterOrders.forEach(order =>{
+        m = new Date(order.purchase_date).getMonth();
+        newViewData[m].mid.push(order.MID);
+
+        // 處理county
+        if(order.contact_address==counties[0]){
+          countyGroup[0].group.push(order.MID);
+        }else if(order.contact_address==counties[1]){
+          countyGroup[1].group.push(order.MID);
+        }else if(order.contact_address==counties[2]){
+          countyGroup[2].group.push(order.MID);
+        }else if(order.contact_address==counties[3]){
+          countyGroup[3].group.push(order.MID);
+        }else if(order.contact_address==counties[4]){
+          countyGroup[4].group.push(order.MID);
+        }else if(order.contact_address==counties[5]){
+          countyGroup[5].group.push(order.MID);
+        }else if(order.contact_address==counties[6]){
+          countyGroup[6].group.push(order.MID);
+        }else if(order.contact_address==counties[7]){
+          countyGroup[7].group.push(order.MID);
+        }else if(order.contact_address==counties[8]){
+          countyGroup[8].group.push(order.MID);
+        }else if(order.contact_address==counties[9]){
+          countyGroup[9].group.push(order.MID);
+        }else if(order.contact_address==counties[10]){
+          countyGroup[10].group.push(order.MID);
+        }else if(order.contact_address==counties[11]){
+          countyGroup[11].group.push(order.MID);
+        }else if(order.contact_address==counties[12]){
+          countyGroup[12].group.push(order.MID);
+        }else if(order.contact_address==counties[13]){
+          countyGroup[13].group.push(order.MID);
+        }else if(order.contact_address==counties[14]){
+          countyGroup[14].group.push(order.MID);
+        }else if(order.contact_address==counties[15]){
+          countyGroup[15].group.push(order.MID);
+        }else if(order.contact_address==counties[16]){
+          countyGroup[16].group.push(order.MID);
+        }else if(order.contact_address==counties[17]){
+          countyGroup[17].group.push(order.MID);
+        }else if(order.contact_address==counties[18]){
+          countyGroup[18].group.push(order.MID);
+        }else if(order.contact_address==counties[19]){
+          countyGroup[19].group.push(order.MID);
+        }else if(order.contact_address==counties[20]){
+          countyGroup[20].group.push(order.MID);
+        }else if(order.contact_address==counties[21]){
+          countyGroup[21].group.push(order.MID);
+        }
+        //沒地址的不會收進去
+      })
+
+      // 過濾每個月訂單的MID不重複
+      function onlyUnique(value, index, self) {
+        return self.indexOf(value) === index;
+      }
+      newViewData.forEach((d,i) =>{
+        newViewData[i].mid = d.mid.filter(onlyUnique);
+        newViewData[i].mid_q = newViewData[i].mid.length;
+      })
+
+      //整理順序
+      newViewData.sort(function(a,b){
+        return a.month - b.month;
+      });
+      // console.log(newViewData);
+
+      // 折線圖
+      var customerLine = d3.line()
+              .x((d)=>x(d.month)+60)
+              .y((d)=>y(d.mid_q)+80);
+      blCustomer.append("path")
+            .datum(newViewData)
+            .attr("d",customerLine)
+            .attr("fill","none")
+            .attr("stroke","#FCAD62")
+            .attr("opacity", 0)
+            .attr("class","customer-path")
+            .transition()
+            .duration(2000)
+            .attr("opacity", 1);
+
+      var customerText = blCustomer.selectAll('.costomer-text')
+              .data(newViewData)
+              .enter()
+              .append("g")
+              .attr("class", "customer-text");
+
+      customerText.append("text")
+            .attr("x",(d)=>x(d.month)+57)
+            .attr("y",(d)=>y(d.mid_q)+75)
+            .text((d)=>d.mid_q);
+
+
+      // 長條圖
+      // 處理age
+      var ageGroup = new Array(10).fill(null).map(()=>({}));;
+      for(var i = 0; i < 10; i++){
+        ageGroup[i].name = (i*10+1) + "-" + ((i+1)*10);
+        ageGroup[i].group = [];
+        ageGroup[i].group_q = 0;
+      }
+
+      // 處理sex
+      var sexGroup = new Array(2).fill(null).map(()=>({}));;
+
+      sexGroup[0].name = "female";
+      sexGroup[1].name = "male";
+      sexGroup[0].group = [];
+      sexGroup[1].group = [];
+      sexGroup[0].group_q = 0;
+      sexGroup[1].group_q = 0;
+
+      filterMembers.forEach((member) => {
+        // 處理age
+        // 將生日轉換為年紀
+        age = new Date(Date.now()).getFullYear()-new Date(member.birthday).getFullYear();
+        if(age<=10){
+          ageGroup[0].group.push(member.MID);
+        }else if(age<=20){
+          ageGroup[1].group.push(member.MID);
+        }else if(age<=30){
+          ageGroup[2].group.push(member.MID);
+        }else if(age<=40){
+          ageGroup[3].group.push(member.MID);
+        }else if(age<=50){
+          ageGroup[4].group.push(member.MID);
+        }else if(age<=60){
+          ageGroup[5].group.push(member.MID);
+        }else if(age<=70){
+          ageGroup[6].group.push(member.MID);
+        }else if(age<=80){
+          ageGroup[7].group.push(member.MID);
+        }else if(age<=90){
+          ageGroup[8].group.push(member.MID);
+        }else if(age>90){
+          ageGroup[9].group.push(member.MID);
+        }
+        // 處理sex
+        if(member.sex=="1"){
+          sexGroup[0].group.push(member.MID);
+        }else if(member.sex=="2"){
+          sexGroup[1].group.push(member.MID);
+        }
+      })
+    
+      for(var i = 0; i < 10; i++){
+        ageGroup[i].group = ageGroup[i].group.filter(onlyUnique);
+        ageGroup[i].group_q = ageGroup[i].group.length;
+      }
+      // console.log(ageGroup);
+      var ageBlock = blAge.selectAll("g .age")
+        .data(ageGroup)
+        .enter()
+        .append("g")
+        .attr("class", "age");
+      ageBlock.append('text')
+            .text(d=>d.group_q)
+            .attr("y",(d) => yAge(d.group_q) + 70)
+            .style("text-anchor", "middle")
+            .attr("x",(d,i)=>i*50 + 84);
+      ageBlock.append("rect")
+            .attr("x",(d,i)=>i*50 + 70)
+            .attr("height",(d)=> height - 120 - yAge(d.group_q))
+            .attr("y",(d)=> yAge(d.group_q) + 80)
+            .attr("fill","rgb(252, 173, 98)")
+            .attr("width",30)
+
+      //處理sex
+      for(var i = 0; i < 2; i++){
+        sexGroup[i].group = sexGroup[i].group.filter(onlyUnique);
+        sexGroup[i].group_q = sexGroup[i].group.length;
+      }
+      // console.log(sexGroup);
+      var sexBlock = blSex.selectAll("g .sex")
+        .data(sexGroup)
+        .enter()
+        .append("g")
+        .attr("class", "sex");
+      sexBlock.append('text')
+            .text(d=>d.group_q)
+            .attr("y",(d) => ySex(d.group_q) + 70)
+            .attr("x",(d,i)=>i*250 + 183)
+            .style("text-anchor", "middle")
+      sexBlock.append("rect")
+            .attr("x",(d,i)=>i*250 + 160)
+            .attr("height",(d)=> height - 120 - ySex(d.group_q))
+            .attr("y",(d)=> ySex(d.group_q) + 80)
+            .attr("fill","rgb(252, 173, 98)")
+            .attr("width",50)
+
+      
+      // 處理county
+      for(var i = 0; i < 22; i++){
+        countyGroup[i].group = countyGroup[i].group.filter(onlyUnique);
+        countyGroup[i].group_q = countyGroup[i].group.length;
+      }
+      // console.log(countyGroup);
+      var countyBlock = blCounty.selectAll("g .county")
+        .data(countyGroup)
+        .enter()
+        .append("g")
+        .attr("class", "county");
+      countyBlock.append('text')
+            .text(d=>d.group_q)
+            .attr("y",(d) => yCounty(d.group_q) + 70)
+            .attr("x",(d,i)=>i*50 + 85)
+            .style("text-anchor", "middle");
+      countyBlock.append("rect")
+            .attr("x",(d,i)=>i*50 + 70)
+            .attr("height",(d)=> height - 120 - yCounty(d.group_q))
+            .attr("y",(d)=> yCounty(d.group_q) + 80)
+            .attr("fill","rgb(252, 173, 98)")
+            .attr("width",30);
+    }
+
+    var filterOrders = [];
+    var filterMembers = [];
+
+    //時間function
+    //半個月
+    function halfYear(item){
+      return new Date().setMonth(new Date().getMonth()-6) < new Date(item.purchase_date);
+    }
+    //三個月
+    function threeMonths(item){
+      return new Date().setMonth(new Date().getMonth()-3) < new Date(item.purchase_date);
+    }
+
+    //篩選時間
+    function datePick(){
+      var i = document.getElementById("date-select").selectedIndex;
+      // console.log(i)
+      if(i==0){
+        filterOrders = orders;
+        filterMembers = members;
+      }else if(i==1){
+        filterOrders = orders.filter(halfYear);
+        filterMembers = members.filter(halfYear);
+      }else if(i==2){
+        filterOrders = orders.filter(threeMonths);
+        filterMembers = members.filter(threeMonths);
+      }
+      renewData()
+    }
+    datePick()
+  </script>
+  
+{% endblock %}

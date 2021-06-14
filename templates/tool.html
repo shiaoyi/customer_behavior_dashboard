@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block dashboard_content %}
+  <h1>Brand Filter</h1>
+  <br>
+  <h4>操作步驟</h4>
+  <div style="font-size:14px;">1. 請先從套版網站匯出特定時間區間的訂單報表（格式選擇B+）</div>
+  <div style="font-size:14px;">2. 打開檔案，將檔案文字編碼轉存成utf-8</div>
+  <div style="font-size:14px;">3. 上傳csv檔，選擇需要的品牌，點擊submit</div>
+  <br>
+  {% for message in get_flashed_messages() %}
+    {% if message=="上傳成功" %}
+    <!-- <div class="alert alert-success" role="alert">{{ message }}</div> -->
+    {% else %}
+    <div class="alert alert-danger" role="alert">{{ message }}</div>
+    {% endif %}
+  {% endfor %}
+  <div class="row">
+    <div class="col-md-6">
+      {% import 'bootstrap/wtf.html' as wtf %}
+      {{ wtf.quick_form(orderForm) }}
+    </div>
+  </div>
+
+  <br>
+  <hr>
+  <br>
+  <h1>User 輪廓與購買紀錄</h1>
+  <br>
+  <form action='/tool/user_record' onsubmit="return validate()">
+    <div class="row">
+      <div class="col-md-6">
+        <label for="user_ids">User ID</label>
+        <input name="user_ids" id="user_ids" type="text" class="form-control">
+      </div>
+    </div>
+    <button type="submit" class="user-record-btn">打包</button>
+  </form>
+
+  <br>
+  <hr>
+  <br>
+  <h1>Line ID Import</h1>
+  <br>
+  <h4>匯入步驟</h4>
+  <div style="font-size:14px;">1. 請先從套版網站下載特定時間區間的會員名單，時間區間可參考 <a title="LINE ID匯出時間表" target="_blank" style="text-decoration:underline;" href="https://docs.google.com/spreadsheets/d/16uFyuDqfqP-thTCLW-b9qWs3rJVzC_4s-_GjQfbC9aw/edit?usp=sharing">LINE ID匯出時間表</a></div>
+  <div style="font-size:14px;">2. 將檔案轉成CSV檔(utf-8)</div>
+  <div style="font-size:14px;">3. 更新 <a title="LINE ID匯出時間表" target="_blank" style="text-decoration:underline;" href="https://docs.google.com/spreadsheets/d/16uFyuDqfqP-thTCLW-b9qWs3rJVzC_4s-_GjQfbC9aw/edit?usp=sharing">LINE ID匯出時間表</a></div>
+  <br>
+  <div class="row">
+    <div class="col-md-6">
+      {% import 'bootstrap/wtf.html' as wtf %}
+      {{ wtf.quick_form(memberForm) }}
+    </div>
+  </div>
+
+  <script>
+    function validate() {
+      if ($('#user_ids').val()==''){
+        $('#user_ids').attr('name','')
+      }
+    }
+  </script>
+  <style>
+    .user-record-btn{
+      margin:10px 0;
+      padding:3px 8px;
+      background-color:white;
+      color: #333;
+      border-radius:4px;
+      outline:none;
+      font-size:14px;
+      border: solid 1px #fff;
+    }
+    .user-record-btn:hover{
+      background-color: #e6e6e6;
+      border: solid 1px #adadad;
+    }
+  </style>
+{% endblock %}
